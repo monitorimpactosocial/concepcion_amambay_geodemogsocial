@@ -16,8 +16,8 @@ function App() {
       setSidebarOpen(true);
     }
 
-    // Load the GeoJSON data (with relative path support)
-    fetch('./concepcion_amambay_hogares.geojson')
+    // Load the GeoJSON data (with explicit repository base path)
+    fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_hogares.geojson')
       .then(response => {
         if (!response.ok) {
           throw new Error('Network response was not ok');

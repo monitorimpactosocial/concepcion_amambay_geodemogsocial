@@ -39,20 +39,22 @@ export default function MapViewer({ geoData, activeDepartment }: MapViewerProps)
   const onEachFeature = (feature: Feature<Geometry, any>, layer: any) => {
     const props = feature.properties;
     if (props) {
-      // Parse numeric value if necessary, though GeoJSON likely holds numbers directly
-      const numericValue = typeof props.value === 'string' ? parseInt(props.value, 10) : (props.value || 0);
-      const formattedValue = new Intl.NumberFormat('es-PY').format(numericValue);
+      // Prioritize DIST_DESC_ (usually cleaner) or NOM_DIST, fallback to 'Distrito'
+      const distName = props.DIST_DESC_ || props.NOM_DIST || 'Distrito';
       
       const tooltipContent = `
-        <div style="font-family: var(--font-primary);">
-          <strong style="color: var(--text-primary); font-size: 1.1em;">${props.NOM_DIST || 'Distrito'}</strong><br/>
-          <span style="color: var(--text-secondary);">${props.DPTO_DESC}</span><br/>
-          <div style="margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 4px;">
-            Total Hogares: <strong style="color: var(--accent-primary);">${formattedValue}</strong>
+        <div style="font-family: var(--font-primary); min-width: 150px;">
+          <strong style="color: var(--text-primary); font-size: 1.1em; display: block; margin-bottom: 2px;">${distName}</strong>
+          <span style="color: var(--text-secondary); font-size: 0.9em;">Departamento de ${props.DPTO_DESC || 'Desconocido'}</span><br/>
+          <div style="margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--text-secondary); font-size: 0.9em;">Total Viviendas:</span>
+                <strong style="color: var(--accent-primary); font-size: 1.1em;">${props.label_value || props.value || 0}</strong>
+            </div>
           </div>
         </div>
       `;
-      layer.bindTooltip(tooltipContent, { className: 'custom-tooltip' });
+      layer.bindTooltip(tooltipContent, { className: 'custom-tooltip', sticky: true });
     }
   };
 

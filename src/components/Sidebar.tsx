@@ -1,4 +1,4 @@
-import { MapPin, Users, Activity, Filter, Layers, Menu, X } from 'lucide-react';
+import { MapPin, Users, Filter, Layers, Menu, X, Route, Droplets } from 'lucide-react';
 import type { GeoJsonObject } from 'geojson';
 
 interface SidebarProps {
@@ -7,9 +7,23 @@ interface SidebarProps {
   setActiveDepartment: (dpto: string | null) => void;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
+  showRoutes: boolean;
+  setShowRoutes: (show: boolean) => void;
+  showWater: boolean;
+  setShowWater: (show: boolean) => void;
 }
 
-export default function Sidebar({ geoData, activeDepartment, setActiveDepartment, isOpen, setIsOpen }: SidebarProps) {
+export default function Sidebar({ 
+  geoData, 
+  activeDepartment, 
+  setActiveDepartment, 
+  isOpen, 
+  setIsOpen,
+  showRoutes,
+  setShowRoutes,
+  showWater,
+  setShowWater
+}: SidebarProps) {
   // Calculate stats from GeoJSON
   let totalHogares = 0;
   let hogaresConcepcion = 0;
@@ -105,6 +119,31 @@ export default function Sidebar({ geoData, activeDepartment, setActiveDepartment
             >
               <span>Solo Amambay</span>
               <MapPin size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="filter-section" style={{ marginTop: '24px' }}>
+          <h3 className="filter-title">
+            <Layers size={18} />
+            Capas Adicionales
+          </h3>
+          <div className="filter-options">
+            <button 
+              className={`filter-btn ${showRoutes ? 'active' : ''}`}
+              onClick={() => setShowRoutes(!showRoutes)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <Route size={16} style={{ color: showRoutes ? 'var(--accent-primary)' : 'inherit' }} />
+              <span>Rutas Nacionales</span>
+            </button>
+            <button 
+              className={`filter-btn ${showWater ? 'active' : ''}`}
+              onClick={() => setShowWater(!showWater)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <Droplets size={16} style={{ color: showWater ? '#0ea5e9' : 'inherit' }} />
+              <span>Hidrografía</span>
             </button>
           </div>
         </div>

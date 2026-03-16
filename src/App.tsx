@@ -5,7 +5,14 @@ import Sidebar from './components/Sidebar';
 
 function App() {
   const [geoData, setGeoData] = useState<GeoJsonObject | null>(null);
+  const [rutasData, setRutasData] = useState<GeoJsonObject | null>(null);
+  const [hidroData, setHidroData] = useState<GeoJsonObject | null>(null);
   const [activeDepartment, setActiveDepartment] = useState<string | null>(null);
+  
+  // Layer visibility toggles
+  const [showRoutes, setShowRoutes] = useState(false);
+  const [showWater, setShowWater] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,20 +24,20 @@ function App() {
     }
 
     // Load the GeoJSON data (with explicit repository base path)
-    fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_hogares.geojson')
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json();
-      })
-      .then(data => {
-        setGeoData(data);
+    Promise.all([
+      fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_hogares.geojson').then(r => r.json()),
+      fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_rutas.geojson').then(r => r.json()).catch(() => null),
+      fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_hidrografia.geojson').then(r => r.json()).catch(() => null)
+    ])
+      .then(([hogares, rutas, hidro]) => {
+        setGeoData(hogares);
+        if (rutas) setRutasData(rutas);
+        if (hidro) setHidroData(hidro);
         setIsLoading(false);
       })
       .catch(error => {
         console.error('Error fetching data:', error);
-        setError('No se pudo cargar la información geográfica.');
+        setError('No se pudo cargar la información geográfica principal.');
         setIsLoading(false);
       });
   }, []);
@@ -59,10 +66,18 @@ function App() {
             setActiveDepartment={setActiveDepartment}
             isOpen={sidebarOpen}
             setIsOpen={setSidebarOpen}
+            showRoutes={showRoutes}
+            setShowRoutes={setShowRoutes}
+            showWater={showWater}
+            setShowWater={setShowWater}
           />
           <MapViewer 
             geoData={geoData} 
             activeDepartment={activeDepartment} 
+            rutasData={rutasData}
+            hidroData={hidroData}
+            showRoutes={showRoutes}
+            showWater={showWater}
           />
         </>
       )}

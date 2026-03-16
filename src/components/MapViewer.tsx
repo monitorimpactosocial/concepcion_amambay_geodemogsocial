@@ -7,9 +7,13 @@ import type { Map as LeafletMap } from 'leaflet';
 interface MapViewerProps {
   geoData: GeoJsonObject | null;
   activeDepartment: string | null;
+  rutasData?: GeoJsonObject | null;
+  hidroData?: GeoJsonObject | null;
+  showRoutes?: boolean;
+  showWater?: boolean;
 }
 
-export default function MapViewer({ geoData, activeDepartment }: MapViewerProps) {
+export default function MapViewer({ geoData, activeDepartment, rutasData, hidroData, showRoutes, showWater }: MapViewerProps) {
   const mapRef = useRef<LeafletMap>(null);
 
   // Modern UI Colors mapping corresponding to departments
@@ -129,6 +133,34 @@ export default function MapViewer({ geoData, activeDepartment }: MapViewerProps)
               );
             })}
           </>
+        )}
+        
+        {/* Render Routes Layer */}
+        {showRoutes && rutasData && (
+          <GeoJSON
+            data={rutasData}
+            style={() => ({
+              color: '#fbbf24', // Amber for routes
+              weight: 1.5,
+              opacity: 0.8
+            })}
+            key={`rutas-${activeDepartment || 'all'}`}
+          />
+        )}
+        
+        {/* Render Hydrography Layer */}
+        {showWater && hidroData && (
+          <GeoJSON
+            data={hidroData}
+            style={() => ({
+              color: '#0ea5e9', // Sky blue for water
+              fillColor: '#0ea5e9',
+              weight: 1,
+              opacity: 0.7,
+              fillOpacity: 0.5
+            })}
+            key={`hidro-${activeDepartment || 'all'}`}
+          />
         )}
       </MapContainer>
     </div>

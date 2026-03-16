@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Tooltip } from 'react-leaflet';
 import type { GeoJsonObject, Feature, Geometry } from 'geojson';
 import 'leaflet/dist/leaflet.css';
 import { useRef } from 'react';
@@ -24,13 +24,13 @@ export default function MapViewer({ geoData, activeDepartment }: MapViewerProps)
     
     // Fade out unselected departments
     const isActive = !activeDepartment || activeDepartment === dpto;
-    const opacity = isActive ? 0.8 : 0.2;
+    const opacity = isActive ? 0.3 : 0.1; // Reduced opacity for polygons to make circles pop
     const color = isConcepcion ? colors['01'] : colors['13'];
     
     return {
         fillColor: color,
         weight: 1,
-        opacity: isActive ? 1 : 0.4,
+        opacity: isActive ? 0.6 : 0.2,
         color: 'white',
         fillOpacity: opacity
     };
@@ -71,13 +71,64 @@ export default function MapViewer({ geoData, activeDepartment }: MapViewerProps)
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
         {geoData && (
-          <GeoJSON 
-            data={geoData}
-            // @ts-ignore
-            style={styleFeature}
-            onEachFeature={onEachFeature}
-            key={activeDepartment || 'all'} 
-          />
+          <>
+            <GeoJSON 
+              data={geoData}
+              // @ts-ignore
+              style={styleFeature}
+              onEachFeature={onEachFeature}
+              key={activeDepartment || 'all'} 
+            />
+            {/* Render Circles for housing points */}
+            {'features' in geoData && (geoData.features as any[]).map((feature: any, index: number) => {
+              const props = feature.properties;
+              if (!props || !props.centroid_lat || !props.centroid_lon) return null;
+              
+              const dpto = props.DPTO;
+              const isActive = !activeDepartment || activeDepartment === dpto;
+              const color = dpto === '01' ? colors['01'] : colors['13'];
+              
+              // Base radius on square root of value to scale area proportionally
+              const value = props.value || 0;
+              const radius = Math.max(8, Math.sqrt(value) / 7);
+
+              const distName = props.DIST_DESC_ || props.NOM_DIST || 'Distrito';
+
+              return (
+                <CircleMarker
+                  key={`circle-${props.id || index}-${activeDepartment || 'all'}`}
+                  center={[props.centroid_lat, props.centroid_lon]}
+                  radius={radius}
+                  pathOptions={{
+                    fillColor: color,
+                    color: 'white',
+                    weight: 2,
+                    fillOpacity: isActive ? 0.8 : 0.2,
+                    opacity: isActive ? 1 : 0.3
+                  }}
+                >
+                  <Tooltip sticky className="custom-tooltip">
+                    <div style={{ fontFamily: 'var(--font-primary)', minWidth: '150px' }}>
+                      <strong style={{ color: 'var(--text-primary)', fontSize: '1.1em', display: 'block', marginBottom: '2px' }}>
+                        {distName}
+                      </strong>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.9em' }}>
+                        Departamento de {props.DPTO_DESC || 'Desconocido'}
+                      </span><br/>
+                      <div style={{ marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9em' }}>Total Viviendas:</span>
+                            <strong style={{ color: 'var(--accent-primary)', fontSize: '1.1em' }}>
+                              {props.label_value || props.value || 0}
+                            </strong>
+                        </div>
+                      </div>
+                    </div>
+                  </Tooltip>
+                </CircleMarker>
+              );
+            })}
+          </>
         )}
       </MapContainer>
     </div>

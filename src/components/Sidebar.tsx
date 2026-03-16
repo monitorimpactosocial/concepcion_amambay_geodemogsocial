@@ -11,6 +11,10 @@ interface SidebarProps {
   setShowRoutes: (show: boolean) => void;
   showWater: boolean;
   setShowWater: (show: boolean) => void;
+  showBarrios: boolean;
+  setShowBarrios: (show: boolean) => void;
+  showManzanas: boolean;
+  setShowManzanas: (show: boolean) => void;
 }
 
 export default function Sidebar({ 
@@ -22,7 +26,11 @@ export default function Sidebar({
   showRoutes,
   setShowRoutes,
   showWater,
-  setShowWater
+  setShowWater,
+  showBarrios,
+  setShowBarrios,
+  showManzanas,
+  setShowManzanas
 }: SidebarProps) {
   // Calculate stats from GeoJSON
   let totalHogares = 0;
@@ -144,6 +152,22 @@ export default function Sidebar({
             >
               <Droplets size={16} style={{ color: showWater ? '#0ea5e9' : 'inherit' }} />
               <span>Hidrografía</span>
+            </button>
+            <button 
+              className={`filter-btn ${showBarrios ? 'active' : ''}`}
+              onClick={() => setShowBarrios(!showBarrios)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <div style={{ width: 16, height: 16, border: `2px solid ${showBarrios ? '#ec4899' : 'currentColor'}`, borderRadius: 2 }} />
+              <span>Barrios Locales</span>
+            </button>
+            <button 
+              className={`filter-btn ${showManzanas ? 'active' : ''}`}
+              onClick={() => setShowManzanas(!showManzanas)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <div style={{ width: 16, height: 16, border: `1px solid ${showManzanas ? '#ef4444' : 'currentColor'}`, background: showManzanas ? 'rgba(239, 68, 68, 0.2)' : 'transparent' }} />
+              <span>Manzanas Censales</span>
             </button>
           </div>
         </div>

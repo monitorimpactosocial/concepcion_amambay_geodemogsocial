@@ -9,11 +9,26 @@ interface MapViewerProps {
   activeDepartment: string | null;
   rutasData?: GeoJsonObject | null;
   hidroData?: GeoJsonObject | null;
+  barriosData?: GeoJsonObject | null;
+  manzanasData?: GeoJsonObject | null;
   showRoutes?: boolean;
   showWater?: boolean;
+  showBarrios?: boolean;
+  showManzanas?: boolean;
 }
 
-export default function MapViewer({ geoData, activeDepartment, rutasData, hidroData, showRoutes, showWater }: MapViewerProps) {
+export default function MapViewer({ 
+  geoData, 
+  activeDepartment, 
+  rutasData, 
+  hidroData, 
+  barriosData,
+  manzanasData,
+  showRoutes, 
+  showWater,
+  showBarrios,
+  showManzanas
+}: MapViewerProps) {
   const mapRef = useRef<LeafletMap>(null);
 
   // Modern UI Colors mapping corresponding to departments
@@ -160,6 +175,36 @@ export default function MapViewer({ geoData, activeDepartment, rutasData, hidroD
               fillOpacity: 0.5
             })}
             key={`hidro-${activeDepartment || 'all'}`}
+          />
+        )}
+        
+        {/* Render Barrios Layer */}
+        {showBarrios && barriosData && (
+          <GeoJSON
+            data={barriosData}
+            style={() => ({
+              color: '#ec4899', // Pinkish border for barrios
+              fillColor: 'transparent',
+              weight: 1.5,
+              opacity: 0.9,
+              dashArray: '4 4'
+            })}
+            key={`barrios-${activeDepartment || 'all'}`}
+          />
+        )}
+
+        {/* Render Manzanas Layer */}
+        {showManzanas && manzanasData && (
+          <GeoJSON
+            data={manzanasData}
+            style={() => ({
+              color: '#ef4444', // Red border for blocks
+              fillColor: '#ef4444',
+              weight: 0.8,
+              opacity: 0.9,
+              fillOpacity: 0.2
+            })}
+            key={`manzanas-${activeDepartment || 'all'}`}
           />
         )}
       </MapContainer>

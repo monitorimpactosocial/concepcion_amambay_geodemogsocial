@@ -15,7 +15,9 @@ export type LayerId =
   | 'educacion'
   | 'agua'
   | 'pobreza'
-  | 'vias';
+  | 'vias'
+  | 'usoSuelos'
+  | 'censo';
 
 export type LayerVisibilityState = Record<LayerId, boolean>;
 

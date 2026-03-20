@@ -32,6 +32,8 @@ const DEFAULT_LAYERS: LayerVisibilityState = {
   agua: false,
   pobreza: false,
   vias: false,
+  usoSuelos: false,
+  censo: false,
 };
 
 function readStoredState(): {
@@ -160,6 +162,18 @@ function App() {
     'vias_principales.geojson',
     layerVisibility.vias,
   );
+  const usoDeSuelosConcepcionResource = useJsonResource<GeoJsonObject>(
+    'uso_de_suelo_concepcion.geojson',
+    layerVisibility.usoSuelos,
+  );
+  const usoDeSuelosAmambayResource = useJsonResource<GeoJsonObject>(
+    'uso_de_suelo_amambay.geojson',
+    layerVisibility.usoSuelos,
+  );
+  const censoResource = useJsonResource<GeoJsonObject>(
+    'censo_2022_indicadores.geojson',
+    layerVisibility.censo,
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -206,6 +220,15 @@ function App() {
     [viviendasConcepcionResource.data, viviendasAmambayResource.data],
   );
 
+  const mergedUsoDeSuelosFeatures = useMemo(
+    () =>
+      mergeFeatureCollections([
+        usoDeSuelosConcepcionResource.data,
+        usoDeSuelosAmambayResource.data,
+      ]),
+    [usoDeSuelosConcepcionResource.data, usoDeSuelosAmambayResource.data],
+  );
+
   const visibleLayerCount = useMemo(
     () => Object.values(layerVisibility).filter(Boolean).length,
     [layerVisibility],
@@ -227,6 +250,9 @@ function App() {
       aguaResource.error,
       pobrezaResource.error,
       viasResource.error,
+      usoDeSuelosConcepcionResource.error,
+      usoDeSuelosAmambayResource.error,
+      censoResource.error,
     ].filter(Boolean);
 
     return errors as string[];
@@ -242,6 +268,9 @@ function App() {
     routesResource.error,
     saludResource.error,
     viasResource.error,
+    usoDeSuelosConcepcionResource.error,
+    usoDeSuelosAmambayResource.error,
+    censoResource.error,
     viviendasAmambayResource.error,
     viviendasConcepcionResource.error,
     waterResource.error,
@@ -261,6 +290,17 @@ function App() {
 
     const viviendasError =
       viviendasConcepcionResource.error || viviendasAmambayResource.error || null;
+
+    const usoSuelosStatus =
+      usoDeSuelosConcepcionResource.status === 'error' || usoDeSuelosAmambayResource.status === 'error'
+        ? 'error'
+        : usoDeSuelosConcepcionResource.status === 'loading' || usoDeSuelosAmambayResource.status === 'loading'
+          ? 'loading'
+          : usoDeSuelosConcepcionResource.status === 'loaded' && usoDeSuelosAmambayResource.status === 'loaded'
+            ? 'loaded'
+            : 'idle';
+
+    const usoSuelosError = usoDeSuelosConcepcionResource.error || usoDeSuelosAmambayResource.error || null;
 
     const indigenasStatus =
       indigenasGeoResource.status === 'error' ||
@@ -361,6 +401,20 @@ function App() {
         error: viasResource.error,
         count: countMatchingFeatures(viasResource.data ?? null, activeDepartment),
       },
+      {
+        id: 'usoSuelos',
+        label: 'Uso de suelos',
+        status: usoSuelosStatus,
+        error: usoSuelosError,
+        count: mergedUsoDeSuelosFeatures.length,
+      },
+      {
+        id: 'censo',
+        label: 'Censo 2022',
+        status: censoResource.status,
+        error: censoResource.error,
+        count: countMatchingFeatures(censoResource.data ?? null, activeDepartment),
+      },
     ];
   }, [
     activeDepartment,
@@ -396,6 +450,14 @@ function App() {
     viasResource.data,
     viasResource.error,
     viasResource.status,
+    usoDeSuelosConcepcionResource.status,
+    usoDeSuelosConcepcionResource.error,
+    usoDeSuelosAmambayResource.status,
+    usoDeSuelosAmambayResource.error,
+    mergedUsoDeSuelosFeatures.length,
+    censoResource.status,
+    censoResource.error,
+    censoResource.data,
     viviendasAmambayResource.error,
     viviendasAmambayResource.status,
     viviendasConcepcionResource.error,
@@ -423,6 +485,9 @@ function App() {
       aguaResource,
       pobrezaResource,
       viasResource,
+      usoDeSuelosConcepcionResource,
+      usoDeSuelosAmambayResource,
+      censoResource,
     ].forEach((resource) => {
       if (resource.status === 'error') {
         resource.reload();
@@ -473,6 +538,8 @@ function App() {
       agua: true,
       pobreza: true,
       vias: true,
+      usoSuelos: true,
+      censo: true,
     });
   };
 
@@ -562,6 +629,8 @@ function App() {
               aguaData={aguaResource.data}
               pobrezaData={pobrezaResource.data}
               viasData={viasResource.data}
+              usoSuelosFeatures={mergedUsoDeSuelosFeatures}
+              censoData={censoResource.data}
               layerVisibility={layerVisibility}
               selectedDistrict={selectedDistrict}
             />

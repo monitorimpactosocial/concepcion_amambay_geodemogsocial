@@ -19,6 +19,7 @@ import {
   Search,
   Sun,
   Trees,
+  Users,
   Waves,
   XCircle,
 } from 'lucide-react';
@@ -73,6 +74,8 @@ const LAYER_LABELS: Array<{
   { id: 'agua', label: 'Tanques de agua', icon: <Droplets size={16} /> },
   { id: 'pobreza', label: 'Riesgo de inundación', icon: <AlertTriangle size={16} /> },
   { id: 'vias', label: 'Vías principales', icon: <Route size={16} /> },
+  { id: 'usoSuelos', label: 'Uso de suelos', icon: <Trees size={16} /> },
+  { id: 'censo', label: 'Censo 2022', icon: <Users size={16} /> },
 ];
 
 function statusClass(status: LayerHealthItem['status']): string {

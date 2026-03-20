@@ -22,6 +22,7 @@ import {
   getBoundsFromFeatures,
   getDepartmentCode,
   getDepartmentName,
+  getDistrictCode,
   getDistrictName,
   getFeatureCollectionFeatures,
   getGeometryCenter,
@@ -31,6 +32,21 @@ import {
   safeNumber,
 } from '../utils/geo';
 import 'leaflet/dist/leaflet.css';
+
+function shouldShowFeature(
+  feature: Feature | null,
+  activeDepartment: DepartmentCode,
+  selectedDistrictKey: string | null
+): boolean {
+  if (!feature) return false;
+  if (selectedDistrictKey) {
+    const dCode = getDistrictCode(feature);
+    if (dCode && dCode !== 'sin-codigo' && dCode !== 'null' && dCode !== '') {
+      return featureMatchesDistrict(feature, selectedDistrictKey);
+    }
+  }
+  return featureMatchesDepartment(feature, activeDepartment);
+}
 
 interface MapViewerProps {
   baseData: GeoJsonObject | null;
@@ -52,6 +68,8 @@ interface MapViewerProps {
   aguaData: GeoJsonObject | null;
   pobrezaData: GeoJsonObject | null;
   viasData: GeoJsonObject | null;
+  usoSuelosFeatures?: Feature[];
+  censoData?: GeoJsonObject | null;
   layerVisibility: LayerVisibilityState;
   selectedDistrict: DistrictOption | null;
 }
@@ -158,6 +176,7 @@ function pointCenterFromFeature(feature: Feature | null | undefined): { lat: num
 function renderGenericPointLayer(
   data: GeoJsonObject | null,
   activeDepartment: DepartmentCode,
+  selectedDistrictKey: string | null,
   color: string,
   fallback: string,
 ) {
@@ -166,7 +185,7 @@ function renderGenericPointLayer(
   return (
     <GeoJSON
       data={data as GeoJsonObject}
-      filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+      filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
       pointToLayer={(_, latlng) =>
         new L.CircleMarker(latlng, {
           radius: 5,
@@ -185,8 +204,10 @@ function renderGenericPointLayer(
       })}
       onEachFeature={(feature, layer) => {
         const name = getLayerFeatureName(feature as Feature, fallback);
+        const desc = getProp(feature as Feature, ['descref', 'DescRef', 'descripcion', 'DESC', 'desc']);
+        const descHtml = desc ? `<span>${desc}</span>` : '';
         layer.bindTooltip(
-          `<div class="tooltip-shell"><strong>${name}</strong><span>${getDepartmentName(
+          `<div class="tooltip-shell"><strong>${name}</strong>${descHtml}<span>${getDepartmentName(
             feature as Feature,
           )}</span></div>`,
           { className: 'custom-tooltip', sticky: true },
@@ -216,6 +237,8 @@ export default function MapViewer({
   aguaData,
   pobrezaData,
   viasData,
+  usoSuelosFeatures,
+  censoData,
   layerVisibility,
   selectedDistrict,
 }: MapViewerProps) {
@@ -230,7 +253,7 @@ export default function MapViewer({
   );
 
   const visibleHousingFeatures = useMemo(() => {
-    const filtered = filterFeaturesByDepartment(viviendasFeatures, activeDepartment);
+    const filtered = viviendasFeatures.filter((f) => shouldShowFeature(f, activeDepartment, selectedDistrictKey));
 
     if (zoomLevel < 10) return [];
     if (zoomLevel >= 13) return filtered;
@@ -364,7 +387,7 @@ export default function MapViewer({
           <Pane name="routes" style={{ zIndex: 420 }}>
             <GeoJSON
               data={routesData}
-              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
               style={() => ({
                 color: '#b45309',
                 weight: 2.2,
@@ -385,7 +408,7 @@ export default function MapViewer({
           <Pane name="water" style={{ zIndex: 410 }}>
             <GeoJSON
               data={waterData}
-              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
               style={() => ({
                 color: '#0284c7',
                 weight: 1.1,
@@ -408,7 +431,7 @@ export default function MapViewer({
           <Pane name="barrios" style={{ zIndex: 430 }}>
             <GeoJSON
               data={barriosData}
-              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
               style={() => ({
                 color: '#db2777',
                 weight: 1.2,
@@ -431,7 +454,7 @@ export default function MapViewer({
           <Pane name="manzanas" style={{ zIndex: 435 }}>
             <GeoJSON
               data={manzanasData}
-              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
               style={() => ({
                 color: '#ef4444',
                 weight: 0.7,
@@ -477,7 +500,7 @@ export default function MapViewer({
         {layerVisibility.indigenas && indigenasData && (
           <Pane name="indigenas" style={{ zIndex: 520 }}>
             {getFeatureCollectionFeatures(indigenasData)
-              .filter((feature) => featureMatchesDepartment(feature, activeDepartment))
+              .filter((feature) => shouldShowFeature(feature, activeDepartment, selectedDistrictKey))
               .map((feature, index) => {
                 const center = pointCenterFromFeature(feature);
                 if (!center) return null;
@@ -547,7 +570,7 @@ export default function MapViewer({
 
         {layerVisibility.salud && (
           <Pane name="salud" style={{ zIndex: 525 }}>
-            {renderGenericPointLayer(saludData, activeDepartment, '#16a34a', 'Local de salud')}
+            {renderGenericPointLayer(saludData, activeDepartment, selectedDistrictKey, '#16a34a', 'Local de salud')}
           </Pane>
         )}
 
@@ -556,6 +579,7 @@ export default function MapViewer({
             {renderGenericPointLayer(
               educacionData,
               activeDepartment,
+              selectedDistrictKey,
               '#ea580c',
               'Local educativo',
             )}
@@ -564,7 +588,7 @@ export default function MapViewer({
 
         {layerVisibility.agua && (
           <Pane name="agua" style={{ zIndex: 527 }}>
-            {renderGenericPointLayer(aguaData, activeDepartment, '#0891b2', 'Tanque de agua')}
+            {renderGenericPointLayer(aguaData, activeDepartment, selectedDistrictKey, '#0891b2', 'Tanque de agua')}
           </Pane>
         )}
 
@@ -572,7 +596,7 @@ export default function MapViewer({
           <Pane name="pobreza" style={{ zIndex: 470 }}>
             <GeoJSON
               data={pobrezaData}
-              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
               style={() => ({
                 color: '#991b1b',
                 weight: 1.4,
@@ -602,7 +626,7 @@ export default function MapViewer({
           <Pane name="vias" style={{ zIndex: 445 }}>
             <GeoJSON
               data={viasData}
-              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
               style={(feature) => {
                 const tipo = String(getProp(feature as Feature, ['TIPO_VIA']) || '');
                 let color = '#71717a';
@@ -634,6 +658,75 @@ export default function MapViewer({
                   `<div class="tooltip-shell">
                     <strong>${name}</strong>
                     <span>${tipo}${rodadura ? `, ${rodadura}` : ''}</span>
+                  </div>`,
+                  { className: 'custom-tooltip', sticky: true },
+                );
+              }}
+            />
+          </Pane>
+        )}
+        {layerVisibility.usoSuelos && usoSuelosFeatures && (
+          <Pane name="usoSuelos" style={{ zIndex: 415 }}>
+            <GeoJSON
+              data={buildFeatureCollection(usoSuelosFeatures)}
+              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
+              style={(feature) => {
+                const desc_uso = String(getProp(feature as Feature, ['DESC_USO']) || '');
+                let color = '#22c55e'; // Green default
+                if (desc_uso.includes('CULTIVO')) color = '#eab308'; // Yellow
+                else if (desc_uso.includes('AGUA') || desc_uso.includes('RIO')) color = '#3b82f6'; // Blue
+                else if (desc_uso.includes('URBANO') || desc_uso.includes('ASENTAMIENTO')) color = '#ef4444'; // Red
+                else if (desc_uso.includes('PASTURA')) color = '#84cc16'; // Lime
+                else if (desc_uso.includes('BOSQUE')) color = '#15803d'; // Dark green
+                
+                return {
+                  weight: 0.5,
+                  color: color,
+                  fillColor: color,
+                  fillOpacity: 0.45,
+                };
+              }}
+              onEachFeature={(feature, layer) => {
+                const desc_uso = String(getProp(feature as Feature, ['DESC_USO']) || 'Uso no especificado');
+                layer.bindTooltip(
+                  `<div class="tooltip-shell"><strong>${desc_uso}</strong><span>Capa de Uso de Suelo</span></div>`,
+                  { className: 'custom-tooltip', sticky: true },
+                );
+              }}
+            />
+          </Pane>
+        )}
+
+        {layerVisibility.censo && censoData && (
+          <Pane name="censo" style={{ zIndex: 432 }}>
+            <GeoJSON
+              data={censoData}
+              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
+              style={() => ({
+                color: '#4f46e5',
+                weight: 1.5,
+                opacity: 0.9,
+                fillColor: '#6366f1',
+                fillOpacity: 0.35,
+              })}
+              onEachFeature={(feature, layer) => {
+                const barrio = String(getProp(feature as Feature, ['barrio', 'BARRIO']) || 'Barrio/Localidad');
+                const pob1 = safeNumber(getProp(feature as Feature, ['pob1']));
+                const viv1 = safeNumber(getProp(feature as Feature, ['viv1']));
+                const hog1 = safeNumber(getProp(feature as Feature, ['hog1']));
+                const hombres = safeNumber(getProp(feature as Feature, ['pob2']));
+                const mujeres = safeNumber(getProp(feature as Feature, ['pob3']));
+                const edad1 = safeNumber(getProp(feature as Feature, ['pob4']));
+                const edad2 = safeNumber(getProp(feature as Feature, ['pob5']));
+                const edad3 = safeNumber(getProp(feature as Feature, ['pob6']));
+
+                layer.bindTooltip(
+                  `<div class="tooltip-shell hover-metrics">
+                    <strong>${barrio} (Censo 2022)</strong>
+                    <span>Población Total: <b>${new Intl.NumberFormat('es-PY').format(pob1)}</b></span>
+                    <span>Hombres / Mujeres: <b>${new Intl.NumberFormat('es-PY').format(hombres)}</b> / <b>${new Intl.NumberFormat('es-PY').format(mujeres)}</b></span>
+                    <span>Edades: 0-14 (<b>${new Intl.NumberFormat('es-PY').format(edad1)}</b>), 15-64 (<b>${new Intl.NumberFormat('es-PY').format(edad2)}</b>), 65+ (<b>${new Intl.NumberFormat('es-PY').format(edad3)}</b>)</span>
+                    <span>Viviendas / Hogares: <b>${new Intl.NumberFormat('es-PY').format(viv1)}</b> / <b>${new Intl.NumberFormat('es-PY').format(hog1)}</b></span>
                   </div>`,
                   { className: 'custom-tooltip', sticky: true },
                 );

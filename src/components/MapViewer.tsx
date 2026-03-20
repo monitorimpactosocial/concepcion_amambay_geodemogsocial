@@ -115,6 +115,14 @@ export default function MapViewer({
     return clean.trim();
   };
 
+  // Helper for filtering by Concepcion (01) and Amambay (13) + Active Department
+  const filterDpto = (feature: any) => {
+    const dpto = feature?.properties?.DPTO || feature?.properties?.dpto;
+    if (!dpto) return false; // Hide items with no explicit department
+    if (activeDepartment) return dpto === activeDepartment;
+    return dpto === '01' || dpto === '13';
+  };
+
   return (
     <div className="map-container">
       <MapContainer 
@@ -283,16 +291,18 @@ export default function MapViewer({
             const geom = feature.geometry;
             if (!props || !geom || !geom.coordinates) return null;
             
-            const dptoContext = props.DPTO;
-            const isActive = !activeDepartment || activeDepartment === dptoContext;
-            if (!isActive) return null;
+            if (!filterDpto(feature)) return null;
 
-            // Geometry is usually a MultiPoint or Point
+            // Geometry handlers to grab the first point
             let lat = 0, lng = 0;
             if (geom.type === 'Point') {
               [lng, lat] = geom.coordinates;
             } else if (geom.type === 'MultiPoint') {
               [lng, lat] = geom.coordinates[0];
+            } else if (geom.type === 'Polygon') {
+              [lng, lat] = geom.coordinates[0][0];
+            } else if (geom.type === 'MultiPolygon') {
+              [lng, lat] = geom.coordinates[0][0][0];
             } else {
               return null; // unsupported geometry
             }
@@ -384,6 +394,7 @@ export default function MapViewer({
         {showSalud && saludData && (
           <GeoJSON
             data={saludData}
+            filter={filterDpto}
             style={() => ({
               color: '#22c55e', fillColor: '#22c55e', weight: 2, opacity: 0.9, fillOpacity: 0.5
             })}
@@ -400,6 +411,7 @@ export default function MapViewer({
         {showEducacion && educacionData && (
           <GeoJSON
             data={educacionData}
+            filter={filterDpto}
             style={() => ({
               color: '#f97316', fillColor: '#f97316', weight: 2, opacity: 0.9, fillOpacity: 0.5
             })}
@@ -416,6 +428,7 @@ export default function MapViewer({
         {showAgua && aguaData && (
           <GeoJSON
             data={aguaData}
+            filter={filterDpto}
             style={() => ({
               color: '#06b6d4', fillColor: '#06b6d4', weight: 2, opacity: 0.9, fillOpacity: 0.5
             })}
@@ -432,13 +445,14 @@ export default function MapViewer({
         {showPobreza && pobrezaData && (
           <GeoJSON
             data={pobrezaData}
+            filter={filterDpto}
             style={() => ({
               color: '#991b1b', fillColor: '#991b1b', weight: 2, opacity: 0.9, fillOpacity: 0.4
             })}
             pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 6, fillColor: '#991b1b', color: 'white', weight: 1, fillOpacity: 0.8 })}
             onEachFeature={(feature, layer) => {
               const props = feature.properties || {};
-              const name = props.nombre || props.barrio || props.DESC || props.Nombre || 'Zona de Riesgo/Pobreza';
+              const name = props.nombre || props.barrio || props.dist_des || props.disbar_des || props.DESC || props.Nombre || 'Zona de Riesgo/Pobreza';
               layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #991b1b">${name}</strong></div>`);
             }}
             key={`pobreza-${activeDepartment || 'all'}`}

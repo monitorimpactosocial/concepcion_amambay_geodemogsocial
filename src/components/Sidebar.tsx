@@ -1,4 +1,4 @@
-import { MapPin, Users, Filter, Layers, Menu, X, Route, Droplets } from 'lucide-react';
+import { MapPin, Users, Filter, Layers, Menu, X, Route, Droplets, Activity, BookOpen, AlertTriangle, ArrowDownToDot } from 'lucide-react';
 import type { GeoJsonObject } from 'geojson';
 
 interface SidebarProps {
@@ -15,6 +15,18 @@ interface SidebarProps {
   setShowBarrios: (show: boolean) => void;
   showManzanas: boolean;
   setShowManzanas: (show: boolean) => void;
+  showPuntos: boolean;
+  setShowPuntos: (show: boolean) => void;
+  showIndigenas: boolean;
+  setShowIndigenas: (show: boolean) => void;
+  showSalud: boolean;
+  setShowSalud: (show: boolean) => void;
+  showEducacion: boolean;
+  setShowEducacion: (show: boolean) => void;
+  showAgua: boolean;
+  setShowAgua: (show: boolean) => void;
+  showPobreza: boolean;
+  setShowPobreza: (show: boolean) => void;
 }
 
 export default function Sidebar({ 
@@ -30,7 +42,19 @@ export default function Sidebar({
   showBarrios,
   setShowBarrios,
   showManzanas,
-  setShowManzanas
+  setShowManzanas,
+  showPuntos,
+  setShowPuntos,
+  showIndigenas,
+  setShowIndigenas,
+  showSalud,
+  setShowSalud,
+  showEducacion,
+  setShowEducacion,
+  showAgua,
+  setShowAgua,
+  showPobreza,
+  setShowPobreza
 }: SidebarProps) {
   // Calculate stats from GeoJSON
   let totalHogares = 0;
@@ -168,6 +192,56 @@ export default function Sidebar({
             >
               <div style={{ width: 16, height: 16, border: `1px solid ${showManzanas ? '#ef4444' : 'currentColor'}`, background: showManzanas ? 'rgba(239, 68, 68, 0.2)' : 'transparent' }} />
               <span>Manzanas Censales</span>
+            </button>
+            <button 
+              className={`filter-btn ${showPuntos ? 'active' : ''}`}
+              onClick={() => setShowPuntos(!showPuntos)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <div style={{ width: 16, height: 16, borderRadius: '50%', background: showPuntos ? '#facc15' : 'currentColor', opacity: 0.8 }} />
+              <span>Viviendas (Puntos)</span>
+            </button>
+            <button 
+              className={`filter-btn ${showIndigenas ? 'active' : ''}`}
+              onClick={() => setShowIndigenas(!showIndigenas)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${showIndigenas ? '#10b981' : 'currentColor'}` }} />
+              <span style={{ color: showIndigenas ? '#10b981' : 'inherit', fontWeight: showIndigenas ? 600 : 'normal' }}>
+                Comunidades Indígenas
+              </span>
+            </button>
+            <button 
+              className={`filter-btn ${showSalud ? 'active' : ''}`}
+              onClick={() => setShowSalud(!showSalud)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <Activity size={16} style={{ color: showSalud ? '#22c55e' : 'inherit' }} />
+              <span>Locales de Salud</span>
+            </button>
+            <button 
+              className={`filter-btn ${showEducacion ? 'active' : ''}`}
+              onClick={() => setShowEducacion(!showEducacion)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <BookOpen size={16} style={{ color: showEducacion ? '#f97316' : 'inherit' }} />
+              <span>Locales Educativos</span>
+            </button>
+            <button 
+              className={`filter-btn ${showAgua ? 'active' : ''}`}
+              onClick={() => setShowAgua(!showAgua)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <ArrowDownToDot size={16} style={{ color: showAgua ? '#06b6d4' : 'inherit' }} />
+              <span>Tanques de Agua</span>
+            </button>
+            <button 
+              className={`filter-btn ${showPobreza ? 'active' : ''}`}
+              onClick={() => setShowPobreza(!showPobreza)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <AlertTriangle size={16} style={{ color: showPobreza ? '#991b1b' : 'inherit' }} />
+              <span>Riesgo Inundación</span>
             </button>
           </div>
         </div>

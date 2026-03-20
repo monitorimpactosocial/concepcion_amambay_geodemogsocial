@@ -31,5 +31,18 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.0"
-  }
+  },
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monitorimpactosocial/concepcion_amambay_geodemogsocial.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/monitorimpactosocial/concepcion_amambay_geodemogsocial/issues"
+  },
+  "homepage": "https://github.com/monitorimpactosocial/concepcion_amambay_geodemogsocial#readme",
+  "description": ""
 }

@@ -3,6 +3,7 @@ import type { GeoJsonObject, Feature, Geometry } from 'geojson';
 import 'leaflet/dist/leaflet.css';
 import { useRef } from 'react';
 import type { Map as LeafletMap } from 'leaflet';
+import L from 'leaflet';
 
 interface MapViewerProps {
   geoData: GeoJsonObject | null;
@@ -11,10 +12,24 @@ interface MapViewerProps {
   hidroData?: GeoJsonObject | null;
   barriosData?: GeoJsonObject | null;
   manzanasData?: GeoJsonObject | null;
+  viviendasData?: any[]; // For heavy point features array
   showRoutes?: boolean;
   showWater?: boolean;
   showBarrios?: boolean;
   showManzanas?: boolean;
+  showPuntos?: boolean;
+  indigenasData?: GeoJsonObject | null;
+  indigenasStats?: any;
+  indigenasPueblosMapping?: any;
+  showIndigenas?: boolean;
+  saludData?: GeoJsonObject | null;
+  educacionData?: GeoJsonObject | null;
+  aguaData?: GeoJsonObject | null;
+  pobrezaData?: GeoJsonObject | null;
+  showSalud?: boolean;
+  showEducacion?: boolean;
+  showAgua?: boolean;
+  showPobreza?: boolean;
 }
 
 export default function MapViewer({ 
@@ -24,10 +39,24 @@ export default function MapViewer({
   hidroData, 
   barriosData,
   manzanasData,
+  viviendasData,
   showRoutes, 
   showWater,
   showBarrios,
-  showManzanas
+  showManzanas,
+  showPuntos,
+  indigenasData,
+  indigenasStats,
+  indigenasPueblosMapping,
+  showIndigenas,
+  saludData,
+  educacionData,
+  aguaData,
+  pobrezaData,
+  showSalud,
+  showEducacion,
+  showAgua,
+  showPobreza
 }: MapViewerProps) {
   const mapRef = useRef<LeafletMap>(null);
 
@@ -77,6 +106,15 @@ export default function MapViewer({
     }
   };
 
+  // Helper function to clean text matching the Python script exactly
+  const cleanText = (text: string) => {
+    if (!text) return "";
+    let clean = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    clean = clean.replace(/\b(com indig|com\.\s*indig\.|comunidad|aldea|barrio|nucleo|individualidades de)\b/g, '');
+    clean = clean.replace(/[^a-z0-9\s]/g, '');
+    return clean.trim();
+  };
+
   return (
     <div className="map-container">
       <MapContainer 
@@ -84,6 +122,7 @@ export default function MapViewer({
         zoom={7} 
         style={{ width: '100%', height: '100%' }}
         ref={mapRef}
+        preferCanvas={true} // Essential for rendering 40,000+ points smoothly
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -207,6 +246,205 @@ export default function MapViewer({
             key={`manzanas-${activeDepartment || 'all'}`}
           />
         )}
+
+        {/* Render Heavy Housing Points (Viviendas Canvas) */}
+        {showPuntos && viviendasData && viviendasData.length > 0 && (
+           viviendasData.map((feature: any, index: number) => {
+              // Standard GeoJSON Point coords: [longitude, latitude]
+              const coords = feature.geometry?.coordinates;
+              if (!coords) return null;
+              
+              const dpto = feature.properties?.DPTO;
+              const isActive = !activeDepartment || activeDepartment === dpto;
+              
+              if (!isActive) return null; // Don't render if filtered out
+
+              return (
+                <CircleMarker
+                  key={`pt-${feature.properties?.fid || index}-${activeDepartment || 'all'}`}
+                  center={[coords[1], coords[0]]} // Leaflet uses [lat, lng]
+                  radius={2}
+                  pathOptions={{
+                    fillColor: '#facc15', // Vibrant yellow simulating heatmap intensity
+                    color: 'transparent', // No border
+                    weight: 0,
+                    fillOpacity: 0.15, // Very transparent, overlaps build up heat!
+                    interactive: false // Critical for 40k points performance
+                  }}
+                />
+              );
+            })
+        )}
+        
+        {/* Render Indigenous Communities */}
+        {showIndigenas && indigenasData && 'features' in indigenasData && (
+          (indigenasData.features as any[]).map((feature: any, index: number) => {
+            const props = feature.properties;
+            const geom = feature.geometry;
+            if (!props || !geom || !geom.coordinates) return null;
+            
+            const dptoContext = props.DPTO;
+            const isActive = !activeDepartment || activeDepartment === dptoContext;
+            if (!isActive) return null;
+
+            // Geometry is usually a MultiPoint or Point
+            let lat = 0, lng = 0;
+            if (geom.type === 'Point') {
+              [lng, lat] = geom.coordinates;
+            } else if (geom.type === 'MultiPoint') {
+              [lng, lat] = geom.coordinates[0];
+            } else {
+              return null; // unsupported geometry
+            }
+
+            const rawName = props.BARLO_DESC || 'Comunidad Desconocida';
+            const cleanedName = cleanText(rawName);
+            const puebloName = indigenasPueblosMapping?.[cleanedName] || 'Sin Pueblo';
+            
+            // Extract statistics for this specific Pueblo
+            let totalPop = "N/D";
+            let totalHombres = "N/D";
+            let totalMujeres = "N/D";
+            let analfabetismoCount = "N/D";
+
+            if (indigenasStats && indigenasStats["T_012"]) {
+              // T_012 is Total Population by Pueblo and Sex
+              const table12 = indigenasStats["T_012"];
+              const row = table12.find((r: any) => r.Col_0 === dptoContext && r.Col_6 === puebloName);
+              if (row) {
+                totalPop = row.Col_7;
+                totalHombres = row.Col_8;
+                totalMujeres = row.Col_9;
+              }
+            }
+
+            if (indigenasStats && indigenasStats["T_029"]) {
+              // T_029 is Literacy (age 15 and up). Let's just find their basic literacy stat if possible
+               const table29 = indigenasStats["T_029"];
+               const row = table29.find((r: any) => r.Col_0 === dptoContext && r.Col_6 === puebloName);
+               if (row) {
+                 // Depende de la estructura de la tabla, Col_9 o Col_10 puede ser analfabetos totales
+                 analfabetismoCount = row.Col_10 || "N/D"; 
+               }
+            }
+            
+            return (
+              <CircleMarker
+                key={`indigena-${props.fid || index}`}
+                center={[lat, lng]}
+                radius={6}
+                pathOptions={{
+                  fillColor: '#10b981', // Vivid green for indigenous communities
+                  color: 'white',
+                  weight: 2,
+                  fillOpacity: 0.9,
+                  opacity: 1
+                }}
+              >
+                <Tooltip sticky className="custom-tooltip">
+                  <div style={{ fontFamily: 'var(--font-primary)', minWidth: '220px' }}>
+                    <div style={{ paddingBottom: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
+                      <strong style={{ color: 'var(--text-primary)', fontSize: '1.1em', display: 'block', lineHeight: 1.2 }}>
+                        {rawName}
+                      </strong>
+                      <span style={{ color: '#10b981', fontSize: '0.85em', fontWeight: 600, display: 'block', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Pueblo: {puebloName}
+                      </span>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.8em', marginTop: '2px', display: 'block' }}>
+                        Distrito: {props.DIST_DESC}
+                      </span>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>Población Total (Pueblo):</span>
+                          <strong style={{ color: 'var(--text-primary)', fontSize: '0.95em' }}>{totalPop}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>Hombres:</span>
+                          <strong style={{ color: 'var(--text-primary)', fontSize: '0.95em' }}>{totalHombres}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>Mujeres:</span>
+                          <strong style={{ color: 'var(--text-primary)', fontSize: '0.95em' }}>{totalMujeres}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', borderTop: '1px dashed var(--border-color)', paddingTop: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>Analfabetismo (15+ años):</span>
+                          <strong style={{ color: '#ef4444', fontSize: '0.95em' }}>{analfabetismoCount}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </Tooltip>
+              </CircleMarker>
+            );
+          })
+        )}
+
+        {/* Render New Layers */}
+        {showSalud && saludData && (
+          <GeoJSON
+            data={saludData}
+            style={() => ({
+              color: '#22c55e', fillColor: '#22c55e', weight: 2, opacity: 0.9, fillOpacity: 0.5
+            })}
+            pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 5, fillColor: '#22c55e', color: 'white', weight: 1, fillOpacity: 0.8 })}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.nombre || props.establecim || props.DESC || props.Nombre || 'Local de Salud';
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #22c55e">${name}</strong></div>`);
+            }}
+            key={`salud-${activeDepartment || 'all'}`}
+          />
+        )}
+
+        {showEducacion && educacionData && (
+          <GeoJSON
+            data={educacionData}
+            style={() => ({
+              color: '#f97316', fillColor: '#f97316', weight: 2, opacity: 0.9, fillOpacity: 0.5
+            })}
+            pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 5, fillColor: '#f97316', color: 'white', weight: 1, fillOpacity: 0.8 })}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.nombre || props.institucio || props.DESC || props.Nombre || 'Local Educativo';
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #f97316">${name}</strong></div>`);
+            }}
+            key={`educacion-${activeDepartment || 'all'}`}
+          />
+        )}
+
+        {showAgua && aguaData && (
+          <GeoJSON
+            data={aguaData}
+            style={() => ({
+              color: '#06b6d4', fillColor: '#06b6d4', weight: 2, opacity: 0.9, fillOpacity: 0.5
+            })}
+            pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 5, fillColor: '#06b6d4', color: 'white', weight: 1, fillOpacity: 0.8 })}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.nombre || props.comunidad || props.DESC || props.Nombre || 'Tanque de Agua';
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #06b6d4">${name}</strong></div>`);
+            }}
+            key={`agua-${activeDepartment || 'all'}`}
+          />
+        )}
+
+        {showPobreza && pobrezaData && (
+          <GeoJSON
+            data={pobrezaData}
+            style={() => ({
+              color: '#991b1b', fillColor: '#991b1b', weight: 2, opacity: 0.9, fillOpacity: 0.4
+            })}
+            pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 6, fillColor: '#991b1b', color: 'white', weight: 1, fillOpacity: 0.8 })}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.nombre || props.barrio || props.DESC || props.Nombre || 'Zona de Riesgo/Pobreza';
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #991b1b">${name}</strong></div>`);
+            }}
+            key={`pobreza-${activeDepartment || 'all'}`}
+          />
+        )}
+
       </MapContainer>
     </div>
   );

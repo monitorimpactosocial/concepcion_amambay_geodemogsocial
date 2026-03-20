@@ -1,519 +1,679 @@
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Tooltip } from 'react-leaflet';
-import type { GeoJsonObject, Feature, Geometry } from 'geojson';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  CircleMarker,
+  GeoJSON,
+  MapContainer,
+  Pane,
+  TileLayer,
+  Tooltip,
+  useMap,
+  useMapEvents,
+  ZoomControl,
+} from 'react-leaflet';
+import L, { type PathOptions } from 'leaflet';
+import type { Feature, GeoJsonObject } from 'geojson';
+import type { BasemapKey, DepartmentCode, DistrictOption, LayerVisibilityState } from '../types';
+import {
+  buildDistrictKey,
+  buildFeatureCollection,
+  featureMatchesDepartment,
+  featureMatchesDistrict,
+  filterFeaturesByDepartment,
+  getBoundsFromFeatures,
+  getDepartmentCode,
+  getDepartmentName,
+  getDistrictName,
+  getFeatureCollectionFeatures,
+  getGeometryCenter,
+  getLayerFeatureName,
+  getProp,
+  isTargetDepartment,
+  safeNumber,
+} from '../utils/geo';
 import 'leaflet/dist/leaflet.css';
-import { useRef } from 'react';
-import type { Map as LeafletMap } from 'leaflet';
-import L from 'leaflet';
 
 interface MapViewerProps {
-  geoData: GeoJsonObject | null;
-  activeDepartment: string | null;
-  rutasData?: GeoJsonObject | null;
-  hidroData?: GeoJsonObject | null;
-  barriosData?: GeoJsonObject | null;
-  manzanasData?: GeoJsonObject | null;
-  viviendasData?: any[]; // For heavy point features array
-  showRoutes?: boolean;
-  showWater?: boolean;
-  showBarrios?: boolean;
-  showManzanas?: boolean;
-  showPuntos?: boolean;
-  indigenasData?: GeoJsonObject | null;
-  indigenasStats?: any;
-  indigenasPueblosMapping?: any;
-  showIndigenas?: boolean;
-  saludData?: GeoJsonObject | null;
-  educacionData?: GeoJsonObject | null;
-  aguaData?: GeoJsonObject | null;
-  pobrezaData?: GeoJsonObject | null;
-  viasData?: GeoJsonObject | null;
-  showSalud?: boolean;
-  showEducacion?: boolean;
-  showAgua?: boolean;
-  showPobreza?: boolean;
-  showVias?: boolean;
+  baseData: GeoJsonObject | null;
+  activeDepartment: DepartmentCode;
+  selectedDistrictKey: string | null;
+  onSelectDistrict: (districtKey: string | null) => void;
+  basemap: BasemapKey;
+  resetViewToken: number;
+  routesData: GeoJsonObject | null;
+  waterData: GeoJsonObject | null;
+  barriosData: GeoJsonObject | null;
+  manzanasData: GeoJsonObject | null;
+  viviendasFeatures: Feature[];
+  indigenasData: GeoJsonObject | null;
+  indigenasStats: Record<string, unknown> | null;
+  indigenasPueblosMapping: Record<string, string> | null;
+  saludData: GeoJsonObject | null;
+  educacionData: GeoJsonObject | null;
+  aguaData: GeoJsonObject | null;
+  pobrezaData: GeoJsonObject | null;
+  viasData: GeoJsonObject | null;
+  layerVisibility: LayerVisibilityState;
+  selectedDistrict: DistrictOption | null;
 }
 
-export default function MapViewer({ 
-  geoData, 
-  activeDepartment, 
-  rutasData, 
-  hidroData, 
+const BASEMAPS: Record<
+  BasemapKey,
+  { url: string; attribution: string }
+> = {
+  light: {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  },
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri',
+  },
+};
+
+function ZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+  const map = useMapEvents({
+    zoomend: () => {
+      onZoomChange(map.getZoom());
+    },
+  });
+
+  useEffect(() => {
+    onZoomChange(map.getZoom());
+  }, [map, onZoomChange]);
+
+  return null;
+}
+
+function MapViewportController({
+  baseData,
+  activeDepartment,
+  selectedDistrictKey,
+  resetViewToken,
+}: {
+  baseData: GeoJsonObject | null;
+  activeDepartment: DepartmentCode;
+  selectedDistrictKey: string | null;
+  resetViewToken: number;
+}) {
+  const map = useMap();
+  const baseFeatures = getFeatureCollectionFeatures(baseData);
+
+  useEffect(() => {
+    const bounds = getBoundsFromFeatures(baseFeatures, (feature) => {
+      if (selectedDistrictKey) return featureMatchesDistrict(feature, selectedDistrictKey);
+      return featureMatchesDepartment(feature, activeDepartment);
+    });
+
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [24, 24], maxZoom: selectedDistrictKey ? 11 : 9 });
+      return;
+    }
+
+    const fallbackBounds = getBoundsFromFeatures(baseFeatures, (feature) =>
+      featureMatchesDepartment(feature, null),
+    );
+    if (fallbackBounds) {
+      map.fitBounds(fallbackBounds, { padding: [28, 28], maxZoom: 8 });
+    }
+  }, [activeDepartment, baseFeatures, map, resetViewToken, selectedDistrictKey]);
+
+  return null;
+}
+
+function getBasePolygonStyle(feature?: Feature | null): PathOptions {
+  const departmentCode = getDepartmentCode(feature ?? undefined);
+  const isConcepcion = departmentCode === '01';
+  const isTarget = isTargetDepartment(departmentCode);
+
+  return {
+    color: '#ffffff',
+    weight: 1,
+    opacity: isTarget ? 0.85 : 0.1,
+    fillColor: isConcepcion ? '#2563eb' : '#7c3aed',
+    fillOpacity: isTarget ? 0.24 : 0.04,
+  };
+}
+
+function cleanText(text: string): string {
+  if (!text) return '';
+  let clean = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  clean = clean.replace(
+    /\b(com indig|com\.\s*indig\.|comunidad|aldea|barrio|nucleo|individualidades de)\b/g,
+    '',
+  );
+  clean = clean.replace(/[^a-z0-9\s]/g, '');
+  return clean.trim();
+}
+
+function pointCenterFromFeature(feature: Feature | null | undefined): { lat: number; lng: number } | null {
+  const center = getGeometryCenter(feature);
+  if (center.lat === null || center.lng === null) return null;
+  return { lat: center.lat, lng: center.lng };
+}
+
+function renderGenericPointLayer(
+  data: GeoJsonObject | null,
+  activeDepartment: DepartmentCode,
+  color: string,
+  fallback: string,
+) {
+  if (!data) return null;
+
+  return (
+    <GeoJSON
+      data={data as GeoJsonObject}
+      filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+      pointToLayer={(_, latlng) =>
+        new L.CircleMarker(latlng, {
+          radius: 5,
+          fillColor: color,
+          color: '#ffffff',
+          weight: 1,
+          fillOpacity: 0.9,
+          opacity: 1,
+        })
+      }
+      style={() => ({
+        color,
+        weight: 1.5,
+        opacity: 0.85,
+        fillOpacity: 0.25,
+      })}
+      onEachFeature={(feature, layer) => {
+        const name = getLayerFeatureName(feature as Feature, fallback);
+        layer.bindTooltip(
+          `<div class="tooltip-shell"><strong>${name}</strong><span>${getDepartmentName(
+            feature as Feature,
+          )}</span></div>`,
+          { className: 'custom-tooltip', sticky: true },
+        );
+      }}
+    />
+  );
+}
+
+export default function MapViewer({
+  baseData,
+  activeDepartment,
+  selectedDistrictKey,
+  onSelectDistrict,
+  basemap,
+  resetViewToken,
+  routesData,
+  waterData,
   barriosData,
   manzanasData,
-  viviendasData,
-  showRoutes, 
-  showWater,
-  showBarrios,
-  showManzanas,
-  showPuntos,
+  viviendasFeatures,
   indigenasData,
   indigenasStats,
   indigenasPueblosMapping,
-  showIndigenas,
   saludData,
   educacionData,
   aguaData,
   pobrezaData,
-  showSalud,
-  showEducacion,
-  showAgua,
-  showPobreza,
-  showVias
+  viasData,
+  layerVisibility,
+  selectedDistrict,
 }: MapViewerProps) {
-  const mapRef = useRef<LeafletMap>(null);
+  const [zoomLevel, setZoomLevel] = useState(7);
 
-  // Modern UI Colors mapping corresponding to departments
-  const colors = {
-    '01': '#3b82f6', // Concepcion Blue
-    '13': '#8b5cf6'  // Amambay Purple
-  };
+  const visibleBaseFeatures = useMemo(
+    () =>
+      getFeatureCollectionFeatures(baseData).filter((feature) =>
+        featureMatchesDepartment(feature, activeDepartment),
+      ),
+    [activeDepartment, baseData],
+  );
 
-  const styleFeature = (feature?: Feature<Geometry, any>) => {
-    const dpto = feature?.properties?.DPTO;
-    const isConcepcion = dpto === '01';
-    
-    // Fade out unselected departments
-    const isActive = !activeDepartment || activeDepartment === dpto;
-    const opacity = isActive ? 0.3 : 0.1; // Reduced opacity for polygons to make circles pop
-    const color = isConcepcion ? colors['01'] : colors['13'];
-    
-    return {
-        fillColor: color,
-        weight: 1,
-        opacity: isActive ? 0.6 : 0.2,
-        color: 'white',
-        fillOpacity: opacity
-    };
-  };
+  const visibleHousingFeatures = useMemo(() => {
+    const filtered = filterFeaturesByDepartment(viviendasFeatures, activeDepartment);
 
-  const onEachFeature = (feature: Feature<Geometry, any>, layer: any) => {
-    const props = feature.properties;
-    if (props) {
-      // Prioritize DIST_DESC_ (usually cleaner) or NOM_DIST, fallback to 'Distrito'
-      const distName = props.DIST_DESC_ || props.NOM_DIST || 'Distrito';
-      
-      const tooltipContent = `
-        <div style="font-family: var(--font-primary); min-width: 150px;">
-          <strong style="color: var(--text-primary); font-size: 1.1em; display: block; margin-bottom: 2px;">${distName}</strong>
-          <span style="color: var(--text-secondary); font-size: 0.9em;">Departamento de ${props.DPTO_DESC || 'Desconocido'}</span><br/>
-          <div style="margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 6px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: var(--text-secondary); font-size: 0.9em;">Total Viviendas:</span>
-                <strong style="color: var(--accent-primary); font-size: 1.1em;">${props.label_value || props.value || 0}</strong>
-            </div>
-          </div>
-        </div>
-      `;
-      layer.bindTooltip(tooltipContent, { className: 'custom-tooltip', sticky: true });
-    }
-  };
+    if (zoomLevel < 10) return [];
+    if (zoomLevel >= 13) return filtered;
+    if (zoomLevel === 12) return filtered.filter((_, index) => index % 2 === 0);
+    if (zoomLevel === 11) return filtered.filter((_, index) => index % 4 === 0);
+    return filtered.filter((_, index) => index % 8 === 0);
+  }, [activeDepartment, viviendasFeatures, zoomLevel]);
 
-  // Helper function to clean text matching the Python script exactly
-  const cleanText = (text: string) => {
-    if (!text) return "";
-    let clean = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    clean = clean.replace(/\b(com indig|com\.\s*indig\.|comunidad|aldea|barrio|nucleo|individualidades de)\b/g, '');
-    clean = clean.replace(/[^a-z0-9\s]/g, '');
-    return clean.trim();
-  };
+  const housingSamplingMessage = useMemo(() => {
+    if (!layerVisibility.puntos) return null;
+    if (zoomLevel < 10) return 'Amplíe a zoom 10 o superior para visualizar puntos de viviendas.';
+    if (zoomLevel < 13) return 'Se aplica muestreo visual para mejorar rendimiento a este nivel de zoom.';
+    return null;
+  }, [layerVisibility.puntos, zoomLevel]);
 
-  // Helper for filtering by Concepcion (01) and Amambay (13) + Active Department
-  const filterDpto = (feature: any) => {
-    const dpto = feature?.properties?.DPTO || feature?.properties?.dpto || feature?.properties?.Dpto;
-    if (!dpto) return false; // Hide items with no explicit department
-    if (activeDepartment) return dpto === activeDepartment;
-    return dpto === '01' || dpto === '13';
-  };
+  const selectedDistrictLabel = selectedDistrict
+    ? `${selectedDistrict.districtName}, ${selectedDistrict.departmentName}`
+    : activeDepartment === '01'
+      ? 'Concepción'
+      : activeDepartment === '13'
+        ? 'Amambay'
+        : 'Concepción y Amambay';
+
+  const thematicLegend = useMemo(
+    () => [
+      { label: 'Concepción', color: '#2563eb' },
+      { label: 'Amambay', color: '#7c3aed' },
+      { label: 'Salud', color: '#16a34a' },
+      { label: 'Educación', color: '#ea580c' },
+      { label: 'Agua', color: '#0891b2' },
+      { label: 'Riesgo', color: '#991b1b' },
+    ],
+    [],
+  );
 
   return (
-    <div className="map-container">
-      <MapContainer 
-        center={[-22.9, -56.5]} // Center between Concepcion and Amambay
-        zoom={7} 
-        style={{ width: '100%', height: '100%' }}
-        ref={mapRef}
-        preferCanvas={true} // Essential for rendering 40,000+ points smoothly
+    <div className="map-shell">
+      <MapContainer
+        center={[-22.6, -56.3]}
+        zoom={7}
+        minZoom={6}
+        zoomControl={false}
+        preferCanvas
+        className="leaflet-host"
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        <ZoomControl position="bottomright" />
+        <ZoomTracker onZoomChange={setZoomLevel} />
+        <MapViewportController
+          baseData={baseData}
+          activeDepartment={activeDepartment}
+          selectedDistrictKey={selectedDistrictKey}
+          resetViewToken={resetViewToken}
         />
-        {geoData && (
-          <>
-            <GeoJSON 
-              data={geoData}
-              // @ts-ignore
-              style={styleFeature}
-              onEachFeature={onEachFeature}
-              key={activeDepartment || 'all'} 
-            />
-            {/* Render Circles for housing points */}
-            {'features' in geoData && (geoData.features as any[]).map((feature: any, index: number) => {
-              const props = feature.properties;
-              if (!props || !props.centroid_lat || !props.centroid_lon) return null;
-              
-              const dpto = props.DPTO;
-              const isActive = !activeDepartment || activeDepartment === dpto;
-              const color = dpto === '01' ? colors['01'] : colors['13'];
-              
-              // Base radius on square root of value to scale area proportionally
-              const value = props.value || 0;
-              const radius = Math.max(8, Math.sqrt(value) / 7);
 
-              const distName = props.DIST_DESC_ || props.NOM_DIST || 'Distrito';
+        <TileLayer attribution={BASEMAPS[basemap].attribution} url={BASEMAPS[basemap].url} />
 
-              return (
-                <CircleMarker
-                  key={`circle-${props.id || index}-${activeDepartment || 'all'}`}
-                  center={[props.centroid_lat, props.centroid_lon]}
-                  radius={radius}
-                  pathOptions={{
-                    fillColor: color,
-                    color: 'white',
-                    weight: 2,
-                    fillOpacity: isActive ? 0.8 : 0.2,
-                    opacity: isActive ? 1 : 0.3
-                  }}
-                >
-                  <Tooltip sticky className="custom-tooltip">
-                    <div style={{ fontFamily: 'var(--font-primary)', minWidth: '150px' }}>
-                      <strong style={{ color: 'var(--text-primary)', fontSize: '1.1em', display: 'block', marginBottom: '2px' }}>
-                        {distName}
-                      </strong>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.9em' }}>
-                        Departamento de {props.DPTO_DESC || 'Desconocido'}
-                      </span><br/>
-                      <div style={{ marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '6px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9em' }}>Total Viviendas:</span>
-                            <strong style={{ color: 'var(--accent-primary)', fontSize: '1.1em' }}>
-                              {props.label_value || props.value || 0}
-                            </strong>
-                        </div>
-                      </div>
-                    </div>
-                  </Tooltip>
-                </CircleMarker>
+        <Pane name="base-polygons" style={{ zIndex: 200 }}>
+          <GeoJSON
+            data={buildFeatureCollection(visibleBaseFeatures)}
+            style={(feature) => {
+              const baseStyle = getBasePolygonStyle(feature as Feature);
+              const isSelected = featureMatchesDistrict(feature as Feature, selectedDistrictKey);
+              return {
+                ...baseStyle,
+                weight: isSelected ? 2.5 : baseStyle.weight,
+                fillOpacity: isSelected ? 0.38 : baseStyle.fillOpacity,
+              };
+            }}
+            onEachFeature={(feature, layer) => {
+              const districtKey = buildDistrictKey(feature as Feature);
+              const districtName = getDistrictName(feature as Feature);
+              const value = safeNumber(getProp(feature as Feature, ['value', 'label_value']));
+              const departmentName = getDepartmentName(feature as Feature);
+
+              layer.bindTooltip(
+                `<div class="tooltip-shell">
+                  <strong>${districtName}</strong>
+                  <span>${departmentName}</span>
+                  <span>Hogares estimados: ${new Intl.NumberFormat('es-PY').format(value)}</span>
+                </div>`,
+                { className: 'custom-tooltip', sticky: true },
               );
-            })}
-          </>
-        )}
-        
-        {/* Render Routes Layer */}
-        {showRoutes && rutasData && (
-          <GeoJSON
-            data={rutasData}
-            style={() => ({
-              color: '#fbbf24', // Amber for routes
-              weight: 1.5,
-              opacity: 0.8
-            })}
-            onEachFeature={(feature, layer) => {
-              const name = feature.properties?.NOMBRE || feature.properties?.DESC_VIA || 'Ruta';
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong>${name}</strong></div>`, { sticky: true });
+
+              layer.on('click', () => {
+                onSelectDistrict(districtKey);
+              });
             }}
-            key={`rutas-${activeDepartment || 'all'}`}
           />
-        )}
-        
-        {/* Render Hydrography Layer */}
-        {showWater && hidroData && (
-          <GeoJSON
-            data={hidroData}
-            style={() => ({
-              color: '#0ea5e9', // Sky blue for water
-              fillColor: '#0ea5e9',
-              weight: 1,
-              opacity: 0.7,
-              fillOpacity: 0.5
-            })}
-            onEachFeature={(feature, layer) => {
-              const name = feature.properties?.DESC_HIDRO || feature.properties?.NOMBRE || 'Cuerpo de Agua';
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong>${name}</strong></div>`, { sticky: true });
-            }}
-            key={`hidro-${activeDepartment || 'all'}`}
-          />
-        )}
-        
-        {/* Render Barrios Layer */}
-        {showBarrios && barriosData && (
-          <GeoJSON
-            data={barriosData}
-            style={() => ({
-              color: '#ec4899', // Pinkish border for barrios
-              fillColor: 'transparent',
-              weight: 1.5,
-              opacity: 0.9,
-              dashArray: '4 4'
-            })}
-            onEachFeature={(feature, layer) => {
-              const name = feature.properties?.BARLO_DESC || feature.properties?.DESC || 'Barrio/Localidad';
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #ec4899">${name}</strong></div>`, { sticky: true });
-            }}
-            key={`barrios-${activeDepartment || 'all'}`}
-          />
-        )}
+        </Pane>
 
-        {/* Render Manzanas Layer */}
-        {showManzanas && manzanasData && (
-          <GeoJSON
-            data={manzanasData}
-            style={() => ({
-              color: '#ef4444', // Red border for blocks
-              fillColor: '#ef4444',
-              weight: 0.8,
-              opacity: 0.9,
-              fillOpacity: 0.2
-            })}
-            onEachFeature={(feature, layer) => {
-              const name = feature.properties?.MZ || feature.properties?.OBJECTID || 'Manzana';
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #ef4444">Manzana ${name}</strong></div>`, { sticky: true });
-            }}
-            key={`manzanas-${activeDepartment || 'all'}`}
-          />
-        )}
+        <Pane name="district-centroids" style={{ zIndex: 360 }}>
+          {visibleBaseFeatures.map((feature, index) => {
+            const center = pointCenterFromFeature(feature);
+            if (!center) return null;
 
-        {/* Render Heavy Housing Points (Viviendas Canvas) */}
-        {showPuntos && viviendasData && viviendasData.length > 0 && (
-           viviendasData.map((feature: any, index: number) => {
-              // Standard GeoJSON Point coords: [longitude, latitude]
-              const coords = feature.geometry?.coordinates;
-              if (!coords) return null;
-              
-              const dpto = feature.properties?.DPTO;
-              const isActive = !activeDepartment || activeDepartment === dpto;
-              
-              if (!isActive) return null; // Don't render if filtered out
+            const departmentCode = getDepartmentCode(feature);
+            const value = safeNumber(getProp(feature, ['value', 'label_value']));
+            const radius = Math.max(10, Math.min(26, Math.sqrt(value) / 7));
+            const districtKey = buildDistrictKey(feature);
+            const isSelected = districtKey === selectedDistrictKey;
 
-              return (
-                <CircleMarker
-                  key={`pt-${feature.properties?.fid || index}-${activeDepartment || 'all'}`}
-                  center={[coords[1], coords[0]]} // Leaflet uses [lat, lng]
-                  radius={2}
-                  pathOptions={{
-                    fillColor: '#facc15', // Vibrant yellow simulating heatmap intensity
-                    color: 'transparent', // No border
-                    weight: 0,
-                    fillOpacity: 0.15, // Very transparent, overlaps build up heat!
-                    interactive: false // Critical for 40k points performance
-                  }}
-                />
-              );
-            })
-        )}
-        
-        {/* Render Indigenous Communities */}
-        {showIndigenas && indigenasData && 'features' in indigenasData && (
-          (indigenasData.features as any[]).map((feature: any, index: number) => {
-            const props = feature.properties;
-            const geom = feature.geometry;
-            if (!props || !geom || !geom.coordinates) return null;
-            
-            if (!filterDpto(feature)) return null;
-
-            // Geometry handlers to grab the first point
-            let lat = 0, lng = 0;
-            if (geom.type === 'Point') {
-              [lng, lat] = geom.coordinates;
-            } else if (geom.type === 'MultiPoint') {
-              [lng, lat] = geom.coordinates[0];
-            } else if (geom.type === 'Polygon') {
-              [lng, lat] = geom.coordinates[0][0];
-            } else if (geom.type === 'MultiPolygon') {
-              [lng, lat] = geom.coordinates[0][0][0];
-            } else {
-              return null; // unsupported geometry
-            }
-
-            const rawName = props.BARLO_DESC || 'Comunidad Desconocida';
-            const cleanedName = cleanText(rawName);
-            const puebloName = indigenasPueblosMapping?.[cleanedName] || 'Sin Pueblo';
-            
-            // Extract statistics for this specific Pueblo
-            let totalPop = "N/D";
-            let totalHombres = "N/D";
-            let totalMujeres = "N/D";
-            let analfabetismoCount = "N/D";
-
-            if (indigenasStats && indigenasStats["T_012"]) {
-              // T_012 is Total Population by Pueblo and Sex
-              const table12 = indigenasStats["T_012"];
-              const row = table12.find((r: any) => r.Col_0 === dptoContext && r.Col_6 === puebloName);
-              if (row) {
-                totalPop = row.Col_7;
-                totalHombres = row.Col_8;
-                totalMujeres = row.Col_9;
-              }
-            }
-
-            if (indigenasStats && indigenasStats["T_029"]) {
-              // T_029 is Literacy (age 15 and up). Let's just find their basic literacy stat if possible
-               const table29 = indigenasStats["T_029"];
-               const row = table29.find((r: any) => r.Col_0 === dptoContext && r.Col_6 === puebloName);
-               if (row) {
-                 // Depende de la estructura de la tabla, Col_9 o Col_10 puede ser analfabetos totales
-                 analfabetismoCount = row.Col_10 || "N/D"; 
-               }
-            }
-            
             return (
               <CircleMarker
-                key={`indigena-${props.fid || index}`}
-                center={[lat, lng]}
-                radius={6}
+                key={`centroid-${districtKey}-${index}`}
+                center={[center.lat, center.lng]}
+                radius={radius}
                 pathOptions={{
-                  fillColor: '#10b981', // Vivid green for indigenous communities
-                  color: 'white',
-                  weight: 2,
-                  fillOpacity: 0.9,
-                  opacity: 1
+                  fillColor: departmentCode === '01' ? '#2563eb' : '#7c3aed',
+                  color: '#ffffff',
+                  weight: isSelected ? 3 : 2,
+                  fillOpacity: isSelected ? 0.9 : 0.72,
+                  opacity: 1,
+                }}
+                eventHandlers={{
+                  click: () => onSelectDistrict(districtKey),
                 }}
               >
                 <Tooltip sticky className="custom-tooltip">
-                  <div style={{ fontFamily: 'var(--font-primary)', minWidth: '220px' }}>
-                    <div style={{ paddingBottom: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
-                      <strong style={{ color: 'var(--text-primary)', fontSize: '1.1em', display: 'block', lineHeight: 1.2 }}>
-                        {rawName}
-                      </strong>
-                      <span style={{ color: '#10b981', fontSize: '0.85em', fontWeight: 600, display: 'block', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Pueblo: {puebloName}
-                      </span>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.8em', marginTop: '2px', display: 'block' }}>
-                        Distrito: {props.DIST_DESC}
-                      </span>
-                    </div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>Población Total (Pueblo):</span>
-                          <strong style={{ color: 'var(--text-primary)', fontSize: '0.95em' }}>{totalPop}</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>Hombres:</span>
-                          <strong style={{ color: 'var(--text-primary)', fontSize: '0.95em' }}>{totalHombres}</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>Mujeres:</span>
-                          <strong style={{ color: 'var(--text-primary)', fontSize: '0.95em' }}>{totalMujeres}</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', borderTop: '1px dashed var(--border-color)', paddingTop: '4px' }}>
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85em' }}>Analfabetismo (15+ años):</span>
-                          <strong style={{ color: '#ef4444', fontSize: '0.95em' }}>{analfabetismoCount}</strong>
-                      </div>
-                    </div>
+                  <div className="tooltip-react-shell">
+                    <strong>{getDistrictName(feature)}</strong>
+                    <span>{getDepartmentName(feature)}</span>
+                    <span>Hogares estimados: {new Intl.NumberFormat('es-PY').format(value)}</span>
                   </div>
                 </Tooltip>
               </CircleMarker>
             );
-          })
+          })}
+        </Pane>
+
+        {layerVisibility.routes && routesData && (
+          <Pane name="routes" style={{ zIndex: 420 }}>
+            <GeoJSON
+              data={routesData}
+              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              style={() => ({
+                color: '#b45309',
+                weight: 2.2,
+                opacity: 0.85,
+              })}
+              onEachFeature={(feature, layer) => {
+                const name = getLayerFeatureName(feature as Feature, 'Ruta');
+                layer.bindTooltip(
+                  `<div class="tooltip-shell"><strong>${name}</strong><span>Rutas principales</span></div>`,
+                  { className: 'custom-tooltip', sticky: true },
+                );
+              }}
+            />
+          </Pane>
         )}
 
-        {/* Render New Layers */}
-        {showSalud && saludData && (
-          <GeoJSON
-            data={saludData}
-            filter={filterDpto}
-            style={() => ({
-              color: '#22c55e', fillColor: '#22c55e', weight: 2, opacity: 0.9, fillOpacity: 0.5
+        {layerVisibility.water && waterData && (
+          <Pane name="water" style={{ zIndex: 410 }}>
+            <GeoJSON
+              data={waterData}
+              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              style={() => ({
+                color: '#0284c7',
+                weight: 1.1,
+                opacity: 0.9,
+                fillColor: '#38bdf8',
+                fillOpacity: 0.2,
+              })}
+              onEachFeature={(feature, layer) => {
+                const name = getLayerFeatureName(feature as Feature, 'Hidrografía');
+                layer.bindTooltip(
+                  `<div class="tooltip-shell"><strong>${name}</strong><span>Capa hidrográfica</span></div>`,
+                  { className: 'custom-tooltip', sticky: true },
+                );
+              }}
+            />
+          </Pane>
+        )}
+
+        {layerVisibility.barrios && barriosData && (
+          <Pane name="barrios" style={{ zIndex: 430 }}>
+            <GeoJSON
+              data={barriosData}
+              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              style={() => ({
+                color: '#db2777',
+                weight: 1.2,
+                opacity: 0.95,
+                fillOpacity: 0,
+                dashArray: '4 4',
+              })}
+              onEachFeature={(feature, layer) => {
+                const name = getLayerFeatureName(feature as Feature, 'Barrio');
+                layer.bindTooltip(
+                  `<div class="tooltip-shell"><strong>${name}</strong><span>Delimitación barrial</span></div>`,
+                  { className: 'custom-tooltip', sticky: true },
+                );
+              }}
+            />
+          </Pane>
+        )}
+
+        {layerVisibility.manzanas && manzanasData && (
+          <Pane name="manzanas" style={{ zIndex: 435 }}>
+            <GeoJSON
+              data={manzanasData}
+              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              style={() => ({
+                color: '#ef4444',
+                weight: 0.7,
+                opacity: 0.85,
+                fillColor: '#ef4444',
+                fillOpacity: 0.09,
+              })}
+              onEachFeature={(feature, layer) => {
+                const name = getLayerFeatureName(feature as Feature, 'Manzana');
+                layer.bindTooltip(
+                  `<div class="tooltip-shell"><strong>${name}</strong><span>Unidad censal</span></div>`,
+                  { className: 'custom-tooltip', sticky: true },
+                );
+              }}
+            />
+          </Pane>
+        )}
+
+        {layerVisibility.puntos && zoomLevel >= 10 && (
+          <Pane name="housing-points" style={{ zIndex: 500 }}>
+            {visibleHousingFeatures.map((feature, index) => {
+              const center = pointCenterFromFeature(feature);
+              if (!center) return null;
+
+              return (
+                <CircleMarker
+                  key={`house-point-${index}`}
+                  center={[center.lat, center.lng]}
+                  radius={1.8}
+                  pathOptions={{
+                    fillColor: '#f59e0b',
+                    color: 'transparent',
+                    weight: 0,
+                    fillOpacity: 0.18,
+                    interactive: false,
+                  }}
+                />
+              );
             })}
-            pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 5, fillColor: '#22c55e', color: 'white', weight: 1, fillOpacity: 0.8 })}
-            onEachFeature={(feature, layer) => {
-              const props = feature.properties || {};
-              const name = (props.nombref && props.nombref.trim() !== "") ? props.nombref 
-                           : (props.descref || props.nombre || props.establecim || props.DESC || props.Nombre || 'Local de Salud');
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #22c55e">${name}</strong></div>`, { sticky: true });
-            }}
-            key={`salud-${activeDepartment || 'all'}`}
-          />
+          </Pane>
         )}
 
-        {showEducacion && educacionData && (
-          <GeoJSON
-            data={educacionData}
-            filter={filterDpto}
-            style={() => ({
-              color: '#f97316', fillColor: '#f97316', weight: 2, opacity: 0.9, fillOpacity: 0.5
-            })}
-            pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 5, fillColor: '#f97316', color: 'white', weight: 1, fillOpacity: 0.8 })}
-            onEachFeature={(feature, layer) => {
-              const props = feature.properties || {};
-              const name = (props.nombref && props.nombref.trim() !== "") ? props.nombref 
-                           : (props.descref || props.nombre || props.institucio || props.DESC || props.Nombre || 'Local Educativo');
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #f97316">${name}</strong></div>`, { sticky: true });
-            }}
-            key={`educacion-${activeDepartment || 'all'}`}
-          />
+        {layerVisibility.indigenas && indigenasData && (
+          <Pane name="indigenas" style={{ zIndex: 520 }}>
+            {getFeatureCollectionFeatures(indigenasData)
+              .filter((feature) => featureMatchesDepartment(feature, activeDepartment))
+              .map((feature, index) => {
+                const center = pointCenterFromFeature(feature);
+                if (!center) return null;
+
+                const rawName = String(getProp(feature, ['BARLO_DESC', 'barlocdesc']) || 'Comunidad');
+                const cleanedName = cleanText(rawName);
+                const puebloName = indigenasPueblosMapping?.[cleanedName] || 'Sin clasificación';
+
+                let totalPueblo = 'N/D';
+                let totalHombres = 'N/D';
+                let totalMujeres = 'N/D';
+                let analfabetismo = 'N/D';
+
+                const departmentContext = getDepartmentName(feature);
+                const table12 = Array.isArray(indigenasStats?.T_012)
+                  ? (indigenasStats.T_012 as Array<Record<string, string>>)
+                  : [];
+                const table29 = Array.isArray(indigenasStats?.T_029)
+                  ? (indigenasStats.T_029 as Array<Record<string, string>>)
+                  : [];
+
+                const row12 = table12.find(
+                  (row) => row.Col_0 === departmentContext && row.Col_6 === puebloName,
+                );
+                const row29 = table29.find(
+                  (row) => row.Col_0 === departmentContext && row.Col_6 === puebloName,
+                );
+
+                if (row12) {
+                  totalPueblo = row12.Col_7 || 'N/D';
+                  totalHombres = row12.Col_8 || 'N/D';
+                  totalMujeres = row12.Col_9 || 'N/D';
+                }
+                if (row29) {
+                  analfabetismo = row29.Col_10 || 'N/D';
+                }
+
+                return (
+                  <CircleMarker
+                    key={`indigena-${index}`}
+                    center={[center.lat, center.lng]}
+                    radius={6}
+                    pathOptions={{
+                      fillColor: '#059669',
+                      color: '#ffffff',
+                      weight: 1.5,
+                      fillOpacity: 0.9,
+                      opacity: 1,
+                    }}
+                  >
+                    <Tooltip sticky className="custom-tooltip">
+                      <div className="tooltip-react-shell large">
+                        <strong>{rawName}</strong>
+                        <span>Pueblo: {puebloName}</span>
+                        <span>Departamento: {departmentContext}</span>
+                        <span>Población total del pueblo: {totalPueblo}</span>
+                        <span>Hombres: {totalHombres}</span>
+                        <span>Mujeres: {totalMujeres}</span>
+                        <span>Analfabetismo 15 y más: {analfabetismo}</span>
+                      </div>
+                    </Tooltip>
+                  </CircleMarker>
+                );
+              })}
+          </Pane>
         )}
 
-        {showAgua && aguaData && (
-          <GeoJSON
-            data={aguaData}
-            filter={filterDpto}
-            style={() => ({
-              color: '#06b6d4', fillColor: '#06b6d4', weight: 2, opacity: 0.9, fillOpacity: 0.5
-            })}
-            pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 5, fillColor: '#06b6d4', color: 'white', weight: 1, fillOpacity: 0.8 })}
-            onEachFeature={(feature, layer) => {
-              const props = feature.properties || {};
-              // En tanques de agua o similares usan nombref y descref
-              const name = (props.nombref && props.nombref.trim() !== "") ? props.nombref 
-                           : (props.descref || props.nombre || props.comunidad || props.DESC || props.Nombre || 'Tanque de Agua');
-              
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #06b6d4">${name}</strong></div>`, { sticky: true });
-            }}
-            key={`agua-${activeDepartment || 'all'}`}
-          />
+        {layerVisibility.salud && (
+          <Pane name="salud" style={{ zIndex: 525 }}>
+            {renderGenericPointLayer(saludData, activeDepartment, '#16a34a', 'Local de salud')}
+          </Pane>
         )}
 
-        {showPobreza && pobrezaData && (
-          <GeoJSON
-            data={pobrezaData}
-            filter={filterDpto}
-            style={() => ({
-              color: '#991b1b', fillColor: '#991b1b', weight: 2, opacity: 0.9, fillOpacity: 0.4
-            })}
-            pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 6, fillColor: '#991b1b', color: 'white', weight: 1, fillOpacity: 0.8 })}
-            onEachFeature={(feature, layer) => {
-              const props = feature.properties || {};
-              const name = props.nombre || props.barrio || props.dist_des || props.disbar_des || props.DESC || props.Nombre || 'Zona de Riesgo/Pobreza';
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #991b1b">${name}</strong></div>`, { sticky: true });
-            }}
-            key={`pobreza-${activeDepartment || 'all'}`}
-          />
+        {layerVisibility.educacion && (
+          <Pane name="educacion" style={{ zIndex: 526 }}>
+            {renderGenericPointLayer(
+              educacionData,
+              activeDepartment,
+              '#ea580c',
+              'Local educativo',
+            )}
+          </Pane>
         )}
 
-        {/* Formatted Vias Principales por Tipo */}
-        {showVias && viasData && (
-          <GeoJSON
-            data={viasData}
-            filter={filterDpto}
-            style={(feature) => {
-              const tipo = feature?.properties?.TIPO_VIA;
-              let color = '#a1a1aa'; // gray fallback
-              let weight = 1.5;
-              if (tipo === '5') { color = '#ef4444'; weight = 3; } // Ruta Nacional
-              else if (tipo === '3') { color = '#f97316'; weight = 2.5; } // Departamental
-              else if (tipo === '1') { color = '#eab308'; weight = 2; } // Vecinal
-              return { color, weight, opacity: 0.9 };
-            }}
-            onEachFeature={(feature, layer) => {
-              const props = feature.properties || {};
-              const name = props.NOMBRE || props.Nombre || 'Vía';
-              const tipoDesc = props.DesTipoVia || 'Camino';
-              const rodadura = props.DesRodaVia || '';
-              layer.bindTooltip(`
-                <div style="font-family: var(--font-primary)">
-                  <strong style="color: var(--text-primary); font-size: 1.1em">${name}</strong><br/>
-                  <span style="font-size: 0.9em; color: var(--text-secondary)">${tipoDesc} ${rodadura ? `(${rodadura})` : ''}</span>
-                </div>
-              `, { sticky: true, className: 'custom-tooltip' });
-            }}
-            key={`vias-${activeDepartment || 'all'}`}
-          />
+        {layerVisibility.agua && (
+          <Pane name="agua" style={{ zIndex: 527 }}>
+            {renderGenericPointLayer(aguaData, activeDepartment, '#0891b2', 'Tanque de agua')}
+          </Pane>
         )}
 
+        {layerVisibility.pobreza && pobrezaData && (
+          <Pane name="pobreza" style={{ zIndex: 470 }}>
+            <GeoJSON
+              data={pobrezaData}
+              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              style={() => ({
+                color: '#991b1b',
+                weight: 1.4,
+                opacity: 0.85,
+                fillColor: '#b91c1c',
+                fillOpacity: 0.22,
+              })}
+              onEachFeature={(feature, layer) => {
+                const exposed = safeNumber(getProp(feature as Feature, ['exp_tot']));
+                const poverty = safeNumber(getProp(feature as Feature, ['pobr_exp']));
+                const name = getLayerFeatureName(feature as Feature, 'Área expuesta');
+
+                layer.bindTooltip(
+                  `<div class="tooltip-shell">
+                    <strong>${name}</strong>
+                    <span>Expuestos: ${new Intl.NumberFormat('es-PY').format(exposed)}</span>
+                    <span>Población pobre expuesta: ${new Intl.NumberFormat('es-PY').format(poverty)}</span>
+                  </div>`,
+                  { className: 'custom-tooltip', sticky: true },
+                );
+              }}
+            />
+          </Pane>
+        )}
+
+        {layerVisibility.vias && viasData && (
+          <Pane name="vias" style={{ zIndex: 445 }}>
+            <GeoJSON
+              data={viasData}
+              filter={(feature) => featureMatchesDepartment(feature as Feature, activeDepartment)}
+              style={(feature) => {
+                const tipo = String(getProp(feature as Feature, ['TIPO_VIA']) || '');
+                let color = '#71717a';
+                let weight = 1.6;
+
+                if (tipo === '5') {
+                  color = '#dc2626';
+                  weight = 3;
+                } else if (tipo === '3') {
+                  color = '#f97316';
+                  weight = 2.5;
+                } else if (tipo === '1') {
+                  color = '#eab308';
+                  weight = 2;
+                }
+
+                return {
+                  color,
+                  weight,
+                  opacity: 0.9,
+                };
+              }}
+              onEachFeature={(feature, layer) => {
+                const name = getLayerFeatureName(feature as Feature, 'Vía principal');
+                const tipo = String(getProp(feature as Feature, ['DesTipoVia']) || 'Camino');
+                const rodadura = String(getProp(feature as Feature, ['DesRodaVia']) || '');
+
+                layer.bindTooltip(
+                  `<div class="tooltip-shell">
+                    <strong>${name}</strong>
+                    <span>${tipo}${rodadura ? `, ${rodadura}` : ''}</span>
+                  </div>`,
+                  { className: 'custom-tooltip', sticky: true },
+                );
+              }}
+            />
+          </Pane>
+        )}
       </MapContainer>
+
+      <div className="map-overlay top-left">
+        <div className="overlay-title">Ámbito visible</div>
+        <div className="overlay-value">{selectedDistrictLabel}</div>
+        <div className="overlay-subvalue">Zoom actual: {zoomLevel.toFixed(0)}</div>
+      </div>
+
+      {housingSamplingMessage && (
+        <div className="map-overlay top-center warning">
+          <AlertNote message={housingSamplingMessage} />
+        </div>
+      )}
+
+      <div className="map-overlay bottom-left legend-card">
+        <div className="overlay-title">Leyenda</div>
+        <div className="legend-list">
+          {thematicLegend.map((item) => (
+            <div key={item.label} className="legend-item">
+              <span className="legend-swatch" style={{ backgroundColor: item.color }} />
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AlertNote({ message }: { message: string }) {
+  return (
+    <div className="alert-note">
+      <span>{message}</span>
     </div>
   );
 }

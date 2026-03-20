@@ -1,263 +1,378 @@
-import { MapPin, Users, Filter, Layers, Menu, X, Route, Droplets, Activity, BookOpen, AlertTriangle, ArrowDownToDot } from 'lucide-react';
-import type { GeoJsonObject } from 'geojson';
+import { useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Droplets,
+  FileDown,
+  Filter,
+  Globe,
+  GraduationCap,
+  HeartPulse,
+  Home,
+  Layers,
+  Loader2,
+  MapPinned,
+  MoonStar,
+  Route,
+  Search,
+  Sun,
+  Trees,
+  Waves,
+  XCircle,
+} from 'lucide-react';
+import type {
+  BaseStats,
+  BasemapKey,
+  DepartmentCode,
+  DistrictOption,
+  LayerHealthItem,
+  LayerVisibilityState,
+} from '../types';
+import { formatNumber } from '../utils/geo';
 
 interface SidebarProps {
-  geoData: GeoJsonObject | null;
-  activeDepartment: string | null;
-  setActiveDepartment: (dpto: string | null) => void;
-  isOpen: boolean;
-  setIsOpen: (isOpen: boolean) => void;
-  showRoutes: boolean;
-  setShowRoutes: (show: boolean) => void;
-  showWater: boolean;
-  setShowWater: (show: boolean) => void;
-  showBarrios: boolean;
-  setShowBarrios: (show: boolean) => void;
-  showManzanas: boolean;
-  setShowManzanas: (show: boolean) => void;
-  showPuntos: boolean;
-  setShowPuntos: (show: boolean) => void;
-  showIndigenas: boolean;
-  setShowIndigenas: (show: boolean) => void;
-  showSalud: boolean;
-  setShowSalud: (show: boolean) => void;
-  showEducacion: boolean;
-  setShowEducacion: (show: boolean) => void;
-  showAgua: boolean;
-  setShowAgua: (show: boolean) => void;
-  showPobreza: boolean;
-  setShowPobreza: (show: boolean) => void;
-  showVias: boolean;
-  setShowVias: (show: boolean) => void;
+  sidebarOpen: boolean;
+  setSidebarOpen: (value: boolean) => void;
+  activeDepartment: DepartmentCode;
+  setActiveDepartment: (value: DepartmentCode) => void;
+  basemap: BasemapKey;
+  setBasemap: (value: BasemapKey) => void;
+  baseStats: BaseStats;
+  selectedDistrict: DistrictOption | null;
+  selectedDistrictKey: string | null;
+  setSelectedDistrictKey: (value: string | null) => void;
+  districtOptions: DistrictOption[];
+  visibleLayerCount: number;
+  layerVisibility: LayerVisibilityState;
+  setLayer: (layerId: keyof LayerVisibilityState, nextValue: boolean) => void;
+  showAllLayers: () => void;
+  hideAllLayers: () => void;
+  layerHealthItems: LayerHealthItem[];
+  baseFeatureCount: number;
+  optionalErrors: string[];
+  resetView: () => void;
+  retryFailedLayers: () => void;
+  exportCurrentConfiguration: () => void;
 }
 
-export default function Sidebar({ 
-  geoData, 
-  activeDepartment, 
-  setActiveDepartment, 
-  isOpen, 
-  setIsOpen,
-  showRoutes,
-  setShowRoutes,
-  showWater,
-  setShowWater,
-  showBarrios,
-  setShowBarrios,
-  showManzanas,
-  setShowManzanas,
-  showPuntos,
-  setShowPuntos,
-  showIndigenas,
-  setShowIndigenas,
-  showSalud,
-  setShowSalud,
-  showEducacion,
-  setShowEducacion,
-  showAgua,
-  setShowAgua,
-  showPobreza,
-  setShowPobreza,
-  showVias,
-  setShowVias
-}: SidebarProps) {
-  // Calculate stats from GeoJSON
-  let totalHogares = 0;
-  let hogaresConcepcion = 0;
-  let hogaresAmambay = 0;
-  
-  if (geoData && 'features' in geoData) {
-    (geoData.features as any[]).forEach(feature => {
-      const dpto = feature.properties?.DPTO;
-      const val = feature.properties?.value || 0;
-      
-      totalHogares += val;
-      if (dpto === '01') hogaresConcepcion += val;
-      if (dpto === '13') hogaresAmambay += val;
-    });
-  }
+const LAYER_LABELS: Array<{
+  id: keyof LayerVisibilityState;
+  label: string;
+  icon: JSX.Element;
+}> = [
+  { id: 'routes', label: 'Rutas', icon: <Route size={16} /> },
+  { id: 'water', label: 'Hidrografía', icon: <Waves size={16} /> },
+  { id: 'barrios', label: 'Barrios', icon: <MapPinned size={16} /> },
+  { id: 'manzanas', label: 'Manzanas censales', icon: <Home size={16} /> },
+  { id: 'puntos', label: 'Viviendas', icon: <Layers size={16} /> },
+  { id: 'indigenas', label: 'Comunidades indígenas', icon: <Trees size={16} /> },
+  { id: 'salud', label: 'Locales de salud', icon: <HeartPulse size={16} /> },
+  { id: 'educacion', label: 'Locales educativos', icon: <GraduationCap size={16} /> },
+  { id: 'agua', label: 'Tanques de agua', icon: <Droplets size={16} /> },
+  { id: 'pobreza', label: 'Riesgo de inundación', icon: <AlertTriangle size={16} /> },
+  { id: 'vias', label: 'Vías principales', icon: <Route size={16} /> },
+];
 
-  const formatNumber = (num: number) => new Intl.NumberFormat('es-PY').format(num);
+function statusClass(status: LayerHealthItem['status']): string {
+  if (status === 'loaded') return 'status-loaded';
+  if (status === 'loading') return 'status-loading';
+  if (status === 'error') return 'status-error';
+  return 'status-idle';
+}
+
+export default function Sidebar({
+  sidebarOpen,
+  setSidebarOpen,
+  activeDepartment,
+  setActiveDepartment,
+  basemap,
+  setBasemap,
+  baseStats,
+  selectedDistrict,
+  selectedDistrictKey,
+  setSelectedDistrictKey,
+  districtOptions,
+  visibleLayerCount,
+  layerVisibility,
+  setLayer,
+  showAllLayers,
+  hideAllLayers,
+  layerHealthItems,
+  baseFeatureCount,
+  optionalErrors,
+  resetView,
+  retryFailedLayers,
+  exportCurrentConfiguration,
+}: SidebarProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredDistrictOptions = useMemo(() => {
+    const normalized = searchTerm.trim().toLowerCase();
+    if (!normalized) return districtOptions;
+
+    return districtOptions.filter((item) => {
+      return (
+        item.districtName.toLowerCase().includes(normalized) ||
+        item.departmentName.toLowerCase().includes(normalized)
+      );
+    });
+  }, [districtOptions, searchTerm]);
 
   return (
     <>
-      <button 
-        className="menu-toggle"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle Menu"
+      <button
+        className="sidebar-toggle"
+        type="button"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        aria-label={sidebarOpen ? 'Contraer panel lateral' : 'Expandir panel lateral'}
       >
-        {isOpen ? <X size={24} /> : <Menu size={24} />}
+        {sidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
       </button>
 
-      <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <aside className={`sidebar-panel ${sidebarOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="sidebar-header">
-          <h1 className="title-gradient">Monitor de Impacto Social</h1>
-          <p className="subtitle">Análisis Geodemográfico: Concepción y Amambay</p>
+          <div>
+            <p className="eyebrow">Monitor geodemográfico</p>
+            <h1>Concepción y Amambay</h1>
+            <p className="sidebar-subtitle">
+              Visualización territorial robustecida, con auditoría técnica y carga tolerante a fallas.
+            </p>
+          </div>
+
+          <button className="secondary-button" type="button" onClick={exportCurrentConfiguration}>
+            <FileDown size={16} />
+            Exportar estado
+          </button>
         </div>
 
-        <div className="stat-grid">
-          <div className="stat-card">
-            <div className="stat-label">
-              <Users size={16} />
-              Total Hogares
-            </div>
-            <div className="stat-value">{formatNumber(totalHogares)}</div>
-            {activeDepartment && (
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
-                Mostrando datos filtrados
-              </div>
-            )}
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-label">
-              <div className="department-indicator indicator-concepcion"></div>
-              Hogares Concepción
-            </div>
-            <div className="stat-value" style={{ color: 'var(--accent-primary)' }}>
-              {formatNumber(hogaresConcepcion)}
-            </div>
+        <section className="card-grid">
+          <article className="metric-card">
+            <span className="metric-label">Hogares totales</span>
+            <strong className="metric-value">{formatNumber(baseStats.totalHogares)}</strong>
+            <span className="metric-foot">Distritos base: {formatNumber(baseFeatureCount)}</span>
+          </article>
+
+          <article className="metric-card">
+            <span className="metric-label">Concepción</span>
+            <strong className="metric-value accent-blue">
+              {formatNumber(baseStats.hogaresConcepcion)}
+            </strong>
+            <span className="metric-foot">Departamento 01</span>
+          </article>
+
+          <article className="metric-card">
+            <span className="metric-label">Amambay</span>
+            <strong className="metric-value accent-violet">
+              {formatNumber(baseStats.hogaresAmambay)}
+            </strong>
+            <span className="metric-foot">Departamento 13</span>
+          </article>
+
+          <article className="metric-card">
+            <span className="metric-label">Capas activas</span>
+            <strong className="metric-value accent-emerald">{visibleLayerCount}</strong>
+            <span className="metric-foot">Capas temáticas visibles</span>
+          </article>
+        </section>
+
+        <section className="section-card">
+          <div className="section-title">
+            <Filter size={17} />
+            <h2>Filtros territoriales</h2>
           </div>
 
-          <div className="stat-card">
-            <div className="stat-label">
-              <div className="department-indicator indicator-amambay"></div>
-              Hogares Amambay
-            </div>
-            <div className="stat-value" style={{ color: 'var(--accent-secondary)' }}>
-              {formatNumber(hogaresAmambay)}
-            </div>
-          </div>
-        </div>
-
-        <div className="filter-section">
-          <h3 className="filter-title">
-            <Filter size={18} />
-            Filtros Territoriales
-          </h3>
-          <div className="filter-options">
-            <button 
-              className={`filter-btn ${activeDepartment === null ? 'active' : ''}`}
+          <div className="button-group">
+            <button
+              type="button"
+              className={`chip-button ${activeDepartment === null ? 'is-active' : ''}`}
               onClick={() => setActiveDepartment(null)}
             >
-              <span>Mostrar Ambos Departamentos</span>
-              <Layers size={16} />
+              Ambos departamentos
             </button>
-            <button 
-              className={`filter-btn ${activeDepartment === '01' ? 'active' : ''}`}
+            <button
+              type="button"
+              className={`chip-button ${activeDepartment === '01' ? 'is-active' : ''}`}
               onClick={() => setActiveDepartment('01')}
             >
-              <span>Solo Concepción</span>
-              <MapPin size={16} />
+              Solo Concepción
             </button>
-            <button 
-              className={`filter-btn ${activeDepartment === '13' ? 'active' : ''}`}
+            <button
+              type="button"
+              className={`chip-button ${activeDepartment === '13' ? 'is-active' : ''}`}
               onClick={() => setActiveDepartment('13')}
             >
-              <span>Solo Amambay</span>
-              <MapPin size={16} />
+              Solo Amambay
             </button>
           </div>
-        </div>
 
-        <div className="filter-section" style={{ marginTop: '24px' }}>
-          <h3 className="filter-title">
-            <Layers size={18} />
-            Capas Adicionales
-          </h3>
-          <div className="filter-options">
-            <button 
-              className={`filter-btn ${showRoutes ? 'active' : ''}`}
-              onClick={() => setShowRoutes(!showRoutes)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
+          <div className="search-box">
+            <Search size={16} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Buscar distrito"
+            />
+          </div>
+
+          <div className="district-list">
+            <button
+              type="button"
+              className={`district-item ${selectedDistrictKey === null ? 'is-active' : ''}`}
+              onClick={() => setSelectedDistrictKey(null)}
             >
-              <Route size={16} style={{ color: showRoutes ? 'var(--accent-primary)' : 'inherit' }} />
-              <span>Rutas Nacionales</span>
+              <span>Sin selección específica</span>
+              <span className="district-tag">Vista general</span>
             </button>
-            <button 
-              className={`filter-btn ${showWater ? 'active' : ''}`}
-              onClick={() => setShowWater(!showWater)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
+
+            {filteredDistrictOptions.slice(0, 20).map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`district-item ${selectedDistrictKey === item.key ? 'is-active' : ''}`}
+                onClick={() => setSelectedDistrictKey(item.key)}
+              >
+                <span>
+                  {item.districtName}, {item.departmentName}
+                </span>
+                <span className="district-tag">{formatNumber(item.totalValue)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="section-card">
+          <div className="section-title">
+            <Globe size={17} />
+            <h2>Mapa base</h2>
+          </div>
+
+          <div className="button-group basemap-group">
+            <button
+              type="button"
+              className={`chip-button ${basemap === 'light' ? 'is-active' : ''}`}
+              onClick={() => setBasemap('light')}
             >
-              <Droplets size={16} style={{ color: showWater ? '#0ea5e9' : 'inherit' }} />
-              <span>Hidrografía</span>
+              <Sun size={15} />
+              Claro
             </button>
-            <button 
-              className={`filter-btn ${showBarrios ? 'active' : ''}`}
-              onClick={() => setShowBarrios(!showBarrios)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            <button
+              type="button"
+              className={`chip-button ${basemap === 'dark' ? 'is-active' : ''}`}
+              onClick={() => setBasemap('dark')}
             >
-              <div style={{ width: 16, height: 16, border: `2px solid ${showBarrios ? '#ec4899' : 'currentColor'}`, borderRadius: 2 }} />
-              <span>Barrios Locales</span>
+              <MoonStar size={15} />
+              Oscuro
             </button>
-            <button 
-              className={`filter-btn ${showManzanas ? 'active' : ''}`}
-              onClick={() => setShowManzanas(!showManzanas)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            <button
+              type="button"
+              className={`chip-button ${basemap === 'satellite' ? 'is-active' : ''}`}
+              onClick={() => setBasemap('satellite')}
             >
-              <div style={{ width: 16, height: 16, border: `1px solid ${showManzanas ? '#ef4444' : 'currentColor'}`, background: showManzanas ? 'rgba(239, 68, 68, 0.2)' : 'transparent' }} />
-              <span>Manzanas Censales</span>
-            </button>
-            <button 
-              className={`filter-btn ${showPuntos ? 'active' : ''}`}
-              onClick={() => setShowPuntos(!showPuntos)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
-            >
-              <div style={{ width: 16, height: 16, borderRadius: '50%', background: showPuntos ? '#facc15' : 'currentColor', opacity: 0.8 }} />
-              <span>Viviendas (Puntos)</span>
-            </button>
-            <button 
-              className={`filter-btn ${showIndigenas ? 'active' : ''}`}
-              onClick={() => setShowIndigenas(!showIndigenas)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
-            >
-              <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${showIndigenas ? '#10b981' : 'currentColor'}` }} />
-              <span style={{ color: showIndigenas ? '#10b981' : 'inherit', fontWeight: showIndigenas ? 600 : 'normal' }}>
-                Comunidades Indígenas
-              </span>
-            </button>
-            <button 
-              className={`filter-btn ${showSalud ? 'active' : ''}`}
-              onClick={() => setShowSalud(!showSalud)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
-            >
-              <Activity size={16} style={{ color: showSalud ? '#22c55e' : 'inherit' }} />
-              <span>Locales de Salud</span>
-            </button>
-            <button 
-              className={`filter-btn ${showEducacion ? 'active' : ''}`}
-              onClick={() => setShowEducacion(!showEducacion)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
-            >
-              <BookOpen size={16} style={{ color: showEducacion ? '#f97316' : 'inherit' }} />
-              <span>Locales Educativos</span>
-            </button>
-            <button 
-              className={`filter-btn ${showAgua ? 'active' : ''}`}
-              onClick={() => setShowAgua(!showAgua)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
-            >
-              <ArrowDownToDot size={16} style={{ color: showAgua ? '#06b6d4' : 'inherit' }} />
-              <span>Tanques de Agua</span>
-            </button>
-            <button 
-              className={`filter-btn ${showPobreza ? 'active' : ''}`}
-              onClick={() => setShowPobreza(!showPobreza)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
-            >
-              <AlertTriangle size={16} style={{ color: showPobreza ? '#991b1b' : 'inherit' }} />
-              <span>Riesgo Inundación</span>
-            </button>
-            <button 
-              className={`filter-btn ${showVias ? 'active' : ''}`}
-              onClick={() => setShowVias(!showVias)}
-              style={{ justifyContent: 'flex-start', gap: '12px' }}
-            >
-              <Route size={16} style={{ color: showVias ? '#f97316' : 'inherit' }} />
-              <span>Vías Principales</span>
+              <Globe size={15} />
+              Satelital
             </button>
           </div>
-        </div>
-      </div>
+        </section>
+
+        <section className="section-card">
+          <div className="section-title">
+            <Layers size={17} />
+            <h2>Capas temáticas</h2>
+          </div>
+
+          <div className="toolbar-row">
+            <button className="secondary-button" type="button" onClick={showAllLayers}>
+              Mostrar todo
+            </button>
+            <button className="secondary-button" type="button" onClick={hideAllLayers}>
+              Ocultar todo
+            </button>
+            <button className="secondary-button" type="button" onClick={resetView}>
+              Restablecer vista
+            </button>
+          </div>
+
+          <div className="layer-list">
+            {LAYER_LABELS.map((layer) => (
+              <label key={layer.id} className={`layer-item ${layerVisibility[layer.id] ? 'is-active' : ''}`}>
+                <span className="layer-item-left">
+                  {layer.icon}
+                  {layer.label}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={layerVisibility[layer.id]}
+                  onChange={(event) => setLayer(layer.id, event.target.checked)}
+                />
+              </label>
+            ))}
+          </div>
+        </section>
+
+        {selectedDistrict && (
+          <section className="section-card highlight-card">
+            <div className="section-title">
+              <MapPinned size={17} />
+              <h2>Distrito seleccionado</h2>
+            </div>
+
+            <div className="selected-district">
+              <strong>{selectedDistrict.districtName}</strong>
+              <span>{selectedDistrict.departmentName}</span>
+              <span>Hogares estimados: {formatNumber(selectedDistrict.totalValue)}</span>
+              <span>
+                Coordenadas de referencia: {selectedDistrict.lat?.toFixed(4) ?? 'N/D'}, {selectedDistrict.lng?.toFixed(4) ?? 'N/D'}
+              </span>
+            </div>
+          </section>
+        )}
+
+        <section className="section-card">
+          <div className="section-title">
+            <BookOpen size={17} />
+            <h2>Salud de recursos</h2>
+          </div>
+
+          {optionalErrors.length > 0 && (
+            <div className="alert-box">
+              <AlertTriangle size={16} />
+              <div>
+                <strong>Se detectaron capas con error</strong>
+                <p>
+                  Revise el estado por recurso y utilice la recarga selectiva.
+                </p>
+              </div>
+              <button className="secondary-button" type="button" onClick={retryFailedLayers}>
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          <div className="health-list">
+            {layerHealthItems.map((item) => (
+              <div key={item.id} className="health-item">
+                <div className="health-item-main">
+                  <span className={`status-dot ${statusClass(item.status)}`} />
+                  <div>
+                    <strong>{item.label}</strong>
+                    <p>
+                      {item.status === 'loaded' && `Cargado, registros visibles: ${formatNumber(item.count ?? 0)}`}
+                      {item.status === 'loading' && 'Cargando recurso'}
+                      {item.status === 'idle' && 'Aún no solicitado'}
+                      {item.status === 'error' && (item.error || 'Error no identificado')}
+                    </p>
+                  </div>
+                </div>
+                {item.status === 'loading' && <Loader2 className="spin-icon" size={15} />}
+                {item.status === 'error' && <XCircle size={15} className="error-icon" />}
+              </div>
+            ))}
+          </div>
+        </section>
+      </aside>
     </>
   );
 }

@@ -1,247 +1,571 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { GeoJsonObject } from 'geojson';
 import MapViewer from './components/MapViewer';
 import Sidebar from './components/Sidebar';
+import { useJsonResource } from './hooks/useJsonResource';
+import type {
+  BasemapKey,
+  DepartmentCode,
+  LayerHealthItem,
+  LayerVisibilityState,
+} from './types';
+import {
+  buildDistrictOptions,
+  computeBaseStats,
+  countMatchingFeatures,
+  getFeatureCollectionFeatures,
+  getDistrictByKey,
+  mergeFeatureCollections,
+} from './utils/geo';
+
+const STORAGE_KEY = 'monitor-impacto-social:v2';
+
+const DEFAULT_LAYERS: LayerVisibilityState = {
+  routes: false,
+  water: false,
+  barrios: false,
+  manzanas: false,
+  puntos: false,
+  indigenas: false,
+  salud: false,
+  educacion: false,
+  agua: false,
+  pobreza: false,
+  vias: false,
+};
+
+function readStoredState(): {
+  activeDepartment: DepartmentCode;
+  basemap: BasemapKey;
+  layers: LayerVisibilityState;
+  sidebarOpen: boolean;
+} {
+  if (typeof window === 'undefined') {
+    return {
+      activeDepartment: null,
+      basemap: 'light',
+      layers: DEFAULT_LAYERS,
+      sidebarOpen: true,
+    };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return {
+        activeDepartment: null,
+        basemap: 'light',
+        layers: DEFAULT_LAYERS,
+        sidebarOpen: window.innerWidth >= 1180,
+      };
+    }
+
+    const parsed = JSON.parse(raw) as Partial<{
+      activeDepartment: DepartmentCode;
+      basemap: BasemapKey;
+      layers: Partial<LayerVisibilityState>;
+      sidebarOpen: boolean;
+    }>;
+
+    return {
+      activeDepartment: parsed.activeDepartment ?? null,
+      basemap: parsed.basemap ?? 'light',
+      layers: {
+        ...DEFAULT_LAYERS,
+        ...(parsed.layers ?? {}),
+      },
+      sidebarOpen:
+        typeof parsed.sidebarOpen === 'boolean'
+          ? parsed.sidebarOpen
+          : window.innerWidth >= 1180,
+    };
+  } catch {
+    return {
+      activeDepartment: null,
+      basemap: 'light',
+      layers: DEFAULT_LAYERS,
+      sidebarOpen: window.innerWidth >= 1180,
+    };
+  }
+}
 
 function App() {
-  const [geoData, setGeoData] = useState<GeoJsonObject | null>(null);
-  const [rutasData, setRutasData] = useState<GeoJsonObject | null>(null);
-  const [hidroData, setHidroData] = useState<GeoJsonObject | null>(null);
-  const [barriosData, setBarriosData] = useState<GeoJsonObject | null>(null);
-  const [manzanasData, setManzanasData] = useState<GeoJsonObject | null>(null);
-  const [viviendasData, setViviendasData] = useState<any[]>([]); // Array to hold features
-  
-  // Indigenous Communities State
-  const [indigenasData, setIndigenasData] = useState<GeoJsonObject | null>(null);
-  const [indigenasStats, setIndigenasStats] = useState<any>(null);
-  const [indigenasPueblosMapping, setIndigenasPueblosMapping] = useState<any>(null);
-  
-  const [activeDepartment, setActiveDepartment] = useState<string | null>(null);
-  
-  // Layer visibility toggles
-  const [showRoutes, setShowRoutes] = useState(false);
-  const [showWater, setShowWater] = useState(false);
-  const [showBarrios, setShowBarrios] = useState(false);
-  const [showManzanas, setShowManzanas] = useState(false);
-  const [showPuntos, setShowPuntos] = useState(false);
-  const [showIndigenas, setShowIndigenas] = useState(false);
-  
-  // New Layers
-  const [saludData, setSaludData] = useState<GeoJsonObject | null>(null);
-  const [showSalud, setShowSalud] = useState(false);
-  const [isSaludLoading, setIsSaludLoading] = useState(false);
+  const storedState = readStoredState();
 
-  const [educacionData, setEducacionData] = useState<GeoJsonObject | null>(null);
-  const [showEducacion, setShowEducacion] = useState(false);
-  const [isEducacionLoading, setIsEducacionLoading] = useState(false);
+  const [activeDepartment, setActiveDepartment] = useState<DepartmentCode>(
+    storedState.activeDepartment,
+  );
+  const [basemap, setBasemap] = useState<BasemapKey>(storedState.basemap);
+  const [layerVisibility, setLayerVisibility] = useState<LayerVisibilityState>(
+    storedState.layers,
+  );
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(storedState.sidebarOpen);
+  const [selectedDistrictKey, setSelectedDistrictKey] = useState<string | null>(null);
+  const [resetViewToken, setResetViewToken] = useState(0);
 
-  const [aguaData, setAguaData] = useState<GeoJsonObject | null>(null);
-  const [showAgua, setShowAgua] = useState(false);
-  const [isAguaLoading, setIsAguaLoading] = useState(false);
-
-  const [pobrezaData, setPobrezaData] = useState<GeoJsonObject | null>(null);
-  const [showPobreza, setShowPobreza] = useState(false);
-  const [isPobrezaLoading, setIsPobrezaLoading] = useState(false);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [isPointsLoading, setIsPointsLoading] = useState(false); // separate loader for heavy points
-  const [isIndigenasLoading, setIsIndigenasLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Force sidebar open on larger screens initially
-    if (window.innerWidth > 768) {
-      setSidebarOpen(true);
-    }
-
-    // Load the GeoJSON data (with explicit repository base path)
-    Promise.all([
-      fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_hogares.geojson').then(r => r.json()),
-      fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_rutas.geojson').then(r => r.json()).catch(() => null),
-      fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_hidrografia.geojson').then(r => r.json()).catch(() => null),
-      fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_barrios.geojson').then(r => r.json()).catch(() => null),
-      fetch('/concepcion_amambay_geodemogsocial/concepcion_amambay_manzanas.geojson').then(r => r.json()).catch(() => null)
-    ])
-      .then(([hogares, rutas, hidro, barrios, manzanas]) => {
-        setGeoData(hogares);
-        if (rutas) setRutasData(rutas);
-        if (hidro) setHidroData(hidro);
-        if (barrios) setBarriosData(barrios);
-        if (manzanas) setManzanasData(manzanas);
-        setIsLoading(false);
-      })
-      .catch(error => {
-        console.error('Error fetching data:', error);
-        setError('No se pudo cargar la información geográfica principal.');
-        setError('No se pudo cargar la información geográfica principal.');
-        setIsLoading(false);
-      });
-  }, []);
-
-  // Lazy load the 40MB points data only when user wants it
-  useEffect(() => {
-    if (showPuntos && viviendasData.length === 0) {
-      setIsPointsLoading(true);
-      Promise.all([
-        fetch('/concepcion_amambay_geodemogsocial/concepcion_viviendas.geojson').then(r => r.json()).catch(() => ({ features: [] })),
-        fetch('/concepcion_amambay_geodemogsocial/amambay_viviendas.geojson').then(r => r.json()).catch(() => ({ features: [] }))
-      ]).then(([concepcion, amambay]) => {
-        const mergedFeatures = [...(concepcion.features || []), ...(amambay.features || [])];
-        setViviendasData(mergedFeatures);
-        setIsPointsLoading(false);
-      }).catch((e) => {
-        console.error("Error fetching points:", e);
-        setIsPointsLoading(false);
-      });
-    }
-  }, [showPuntos, viviendasData.length]);
-
-  // Lazy load Indigenous Communities and their Stats mapping
-  useEffect(() => {
-    if (showIndigenas && !indigenasData) {
-      setIsIndigenasLoading(true);
-      Promise.all([
-        fetch('/concepcion_amambay_geodemogsocial/indigenas_comunidades.geojson').then(r => r.json()).catch(() => null),
-        fetch('/concepcion_amambay_geodemogsocial/indigenas_stats.json').then(r => r.json()).catch(() => null),
-        fetch('/concepcion_amambay_geodemogsocial/indigenas_pueblos.json').then(r => r.json()).catch(() => null)
-      ]).then(([geo, stats, mapping]) => {
-        setIndigenasData(geo);
-        setIndigenasStats(stats);
-        setIndigenasPueblosMapping(mapping);
-        setIsIndigenasLoading(false);
-      }).catch((e) => {
-        console.error("Error fetching indigenous data:", e);
-        setIsIndigenasLoading(false);
-      });
-    }
-  }, [showIndigenas, indigenasData]);
-
-  // Lazy load new layers
-  useEffect(() => {
-    if (showSalud && !saludData) {
-      setIsSaludLoading(true);
-      fetch('/concepcion_amambay_geodemogsocial/locales_de_salud.geojson')
-        .then(r => r.json())
-        .then(data => { setSaludData(data); setIsSaludLoading(false); })
-        .catch(e => { console.error(e); setIsSaludLoading(false); });
-    }
-  }, [showSalud, saludData]);
+  const baseResource = useJsonResource<GeoJsonObject>('concepcion_amambay_hogares.geojson', true);
+  const routesResource = useJsonResource<GeoJsonObject>(
+    'concepcion_amambay_rutas.geojson',
+    layerVisibility.routes,
+  );
+  const waterResource = useJsonResource<GeoJsonObject>(
+    'concepcion_amambay_hidrografia.geojson',
+    layerVisibility.water,
+  );
+  const barriosResource = useJsonResource<GeoJsonObject>(
+    'concepcion_amambay_barrios.geojson',
+    layerVisibility.barrios,
+  );
+  const manzanasResource = useJsonResource<GeoJsonObject>(
+    'concepcion_amambay_manzanas.geojson',
+    layerVisibility.manzanas,
+  );
+  const viviendasConcepcionResource = useJsonResource<GeoJsonObject>(
+    'concepcion_viviendas.geojson',
+    layerVisibility.puntos,
+  );
+  const viviendasAmambayResource = useJsonResource<GeoJsonObject>(
+    'amambay_viviendas.geojson',
+    layerVisibility.puntos,
+  );
+  const indigenasGeoResource = useJsonResource<GeoJsonObject>(
+    'indigenas_comunidades.geojson',
+    layerVisibility.indigenas,
+  );
+  const indigenasStatsResource = useJsonResource<Record<string, unknown>>(
+    'indigenas_stats.json',
+    layerVisibility.indigenas,
+  );
+  const indigenasPueblosResource = useJsonResource<Record<string, string>>(
+    'indigenas_pueblos.json',
+    layerVisibility.indigenas,
+  );
+  const saludResource = useJsonResource<GeoJsonObject>(
+    'locales_de_salud.geojson',
+    layerVisibility.salud,
+  );
+  const educacionResource = useJsonResource<GeoJsonObject>(
+    'locales_educativos.geojson',
+    layerVisibility.educacion,
+  );
+  const aguaResource = useJsonResource<GeoJsonObject>(
+    'tanques_de_agua_comunitarios.geojson',
+    layerVisibility.agua,
+  );
+  const pobrezaResource = useJsonResource<GeoJsonObject>(
+    'poblacion_en_situacion_de_pobreza_expuesta_a_inundaciones.geojson',
+    layerVisibility.pobreza,
+  );
+  const viasResource = useJsonResource<GeoJsonObject>(
+    'vias_principales.geojson',
+    layerVisibility.vias,
+  );
 
   useEffect(() => {
-    if (showEducacion && !educacionData) {
-      setIsEducacionLoading(true);
-      fetch('/concepcion_amambay_geodemogsocial/locales_educativos.geojson')
-        .then(r => r.json())
-        .then(data => { setEducacionData(data); setIsEducacionLoading(false); })
-        .catch(e => { console.error(e); setIsEducacionLoading(false); });
-    }
-  }, [showEducacion, educacionData]);
+    if (typeof window === 'undefined') return;
+
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        activeDepartment,
+        basemap,
+        layers: layerVisibility,
+        sidebarOpen,
+      }),
+    );
+  }, [activeDepartment, basemap, layerVisibility, sidebarOpen]);
+
+  const baseStats = useMemo(
+    () => computeBaseStats(baseResource.data ?? null),
+    [baseResource.data],
+  );
+
+  const districtOptions = useMemo(
+    () => buildDistrictOptions(baseResource.data ?? null),
+    [baseResource.data],
+  );
+
+  const selectedDistrict = useMemo(
+    () => getDistrictByKey(districtOptions, selectedDistrictKey),
+    [districtOptions, selectedDistrictKey],
+  );
 
   useEffect(() => {
-    if (showAgua && !aguaData) {
-      setIsAguaLoading(true);
-      fetch('/concepcion_amambay_geodemogsocial/tanques_de_agua_comunitarios.geojson')
-        .then(r => r.json())
-        .then(data => { setAguaData(data); setIsAguaLoading(false); })
-        .catch(e => { console.error(e); setIsAguaLoading(false); });
+    if (!selectedDistrict) return;
+    if (activeDepartment && selectedDistrict.departmentCode !== activeDepartment) {
+      setSelectedDistrictKey(null);
     }
-  }, [showAgua, aguaData]);
+  }, [activeDepartment, selectedDistrict]);
 
-  useEffect(() => {
-    if (showPobreza && !pobrezaData) {
-      setIsPobrezaLoading(true);
-      fetch('/concepcion_amambay_geodemogsocial/poblacion_en_situacion_de_pobreza_expuesta_a_inundaciones.geojson')
-        .then(r => r.json())
-        .then(data => { setPobrezaData(data); setIsPobrezaLoading(false); })
-        .catch(e => { console.error(e); setIsPobrezaLoading(false); });
+  const mergedHousingFeatures = useMemo(
+    () =>
+      mergeFeatureCollections([
+        viviendasConcepcionResource.data,
+        viviendasAmambayResource.data,
+      ]),
+    [viviendasConcepcionResource.data, viviendasAmambayResource.data],
+  );
+
+  const visibleLayerCount = useMemo(
+    () => Object.values(layerVisibility).filter(Boolean).length,
+    [layerVisibility],
+  );
+
+  const optionalErrors = useMemo(() => {
+    const errors = [
+      routesResource.error,
+      waterResource.error,
+      barriosResource.error,
+      manzanasResource.error,
+      viviendasConcepcionResource.error,
+      viviendasAmambayResource.error,
+      indigenasGeoResource.error,
+      indigenasStatsResource.error,
+      indigenasPueblosResource.error,
+      saludResource.error,
+      educacionResource.error,
+      aguaResource.error,
+      pobrezaResource.error,
+      viasResource.error,
+    ].filter(Boolean);
+
+    return errors as string[];
+  }, [
+    aguaResource.error,
+    barriosResource.error,
+    educacionResource.error,
+    indigenasGeoResource.error,
+    indigenasPueblosResource.error,
+    indigenasStatsResource.error,
+    manzanasResource.error,
+    pobrezaResource.error,
+    routesResource.error,
+    saludResource.error,
+    viasResource.error,
+    viviendasAmambayResource.error,
+    viviendasConcepcionResource.error,
+    waterResource.error,
+  ]);
+
+  const layerHealthItems = useMemo<LayerHealthItem[]>(() => {
+    const viviendasStatus =
+      viviendasConcepcionResource.status === 'error' || viviendasAmambayResource.status === 'error'
+        ? 'error'
+        : viviendasConcepcionResource.status === 'loading' ||
+            viviendasAmambayResource.status === 'loading'
+          ? 'loading'
+          : viviendasConcepcionResource.status === 'loaded' &&
+              viviendasAmambayResource.status === 'loaded'
+            ? 'loaded'
+            : 'idle';
+
+    const viviendasError =
+      viviendasConcepcionResource.error || viviendasAmambayResource.error || null;
+
+    const indigenasStatus =
+      indigenasGeoResource.status === 'error' ||
+      indigenasStatsResource.status === 'error' ||
+      indigenasPueblosResource.status === 'error'
+        ? 'error'
+        : indigenasGeoResource.status === 'loading' ||
+            indigenasStatsResource.status === 'loading' ||
+            indigenasPueblosResource.status === 'loading'
+          ? 'loading'
+          : indigenasGeoResource.status === 'loaded' &&
+              indigenasStatsResource.status === 'loaded' &&
+              indigenasPueblosResource.status === 'loaded'
+            ? 'loaded'
+            : 'idle';
+
+    const indigenasError =
+      indigenasGeoResource.error ||
+      indigenasStatsResource.error ||
+      indigenasPueblosResource.error ||
+      null;
+
+    return [
+      {
+        id: 'routes',
+        label: 'Rutas',
+        status: routesResource.status,
+        error: routesResource.error,
+        count: countMatchingFeatures(routesResource.data ?? null, activeDepartment),
+      },
+      {
+        id: 'water',
+        label: 'Hidrografía',
+        status: waterResource.status,
+        error: waterResource.error,
+        count: countMatchingFeatures(waterResource.data ?? null, activeDepartment),
+      },
+      {
+        id: 'barrios',
+        label: 'Barrios',
+        status: barriosResource.status,
+        error: barriosResource.error,
+        count: countMatchingFeatures(barriosResource.data ?? null, activeDepartment),
+      },
+      {
+        id: 'manzanas',
+        label: 'Manzanas',
+        status: manzanasResource.status,
+        error: manzanasResource.error,
+        count: countMatchingFeatures(manzanasResource.data ?? null, activeDepartment),
+      },
+      {
+        id: 'puntos',
+        label: 'Viviendas',
+        status: viviendasStatus,
+        error: viviendasError,
+        count: mergedHousingFeatures.length,
+      },
+      {
+        id: 'indigenas',
+        label: 'Comunidades indígenas',
+        status: indigenasStatus,
+        error: indigenasError,
+        count: countMatchingFeatures(indigenasGeoResource.data ?? null, activeDepartment),
+      },
+      {
+        id: 'salud',
+        label: 'Locales de salud',
+        status: saludResource.status,
+        error: saludResource.error,
+        count: countMatchingFeatures(saludResource.data ?? null, activeDepartment),
+      },
+      {
+        id: 'educacion',
+        label: 'Locales educativos',
+        status: educacionResource.status,
+        error: educacionResource.error,
+        count: countMatchingFeatures(educacionResource.data ?? null, activeDepartment),
+      },
+      {
+        id: 'agua',
+        label: 'Tanques de agua',
+        status: aguaResource.status,
+        error: aguaResource.error,
+        count: countMatchingFeatures(aguaResource.data ?? null, activeDepartment),
+      },
+      {
+        id: 'pobreza',
+        label: 'Riesgo de inundación y pobreza',
+        status: pobrezaResource.status,
+        error: pobrezaResource.error,
+        count: countMatchingFeatures(pobrezaResource.data ?? null, activeDepartment),
+      },
+      {
+        id: 'vias',
+        label: 'Vías principales',
+        status: viasResource.status,
+        error: viasResource.error,
+        count: countMatchingFeatures(viasResource.data ?? null, activeDepartment),
+      },
+    ];
+  }, [
+    activeDepartment,
+    aguaResource.data,
+    aguaResource.error,
+    aguaResource.status,
+    barriosResource.data,
+    barriosResource.error,
+    barriosResource.status,
+    educacionResource.data,
+    educacionResource.error,
+    educacionResource.status,
+    indigenasGeoResource.data,
+    indigenasGeoResource.error,
+    indigenasGeoResource.status,
+    indigenasPueblosResource.error,
+    indigenasPueblosResource.status,
+    indigenasStatsResource.error,
+    indigenasStatsResource.status,
+    manzanasResource.data,
+    manzanasResource.error,
+    manzanasResource.status,
+    mergedHousingFeatures.length,
+    pobrezaResource.data,
+    pobrezaResource.error,
+    pobrezaResource.status,
+    routesResource.data,
+    routesResource.error,
+    routesResource.status,
+    saludResource.data,
+    saludResource.error,
+    saludResource.status,
+    viasResource.data,
+    viasResource.error,
+    viasResource.status,
+    viviendasAmambayResource.error,
+    viviendasAmambayResource.status,
+    viviendasConcepcionResource.error,
+    viviendasConcepcionResource.status,
+    waterResource.data,
+    waterResource.error,
+    waterResource.status,
+  ]);
+
+  const baseFeatures = getFeatureCollectionFeatures(baseResource.data ?? null);
+
+  const retryFailedLayers = () => {
+    [
+      routesResource,
+      waterResource,
+      barriosResource,
+      manzanasResource,
+      viviendasConcepcionResource,
+      viviendasAmambayResource,
+      indigenasGeoResource,
+      indigenasStatsResource,
+      indigenasPueblosResource,
+      saludResource,
+      educacionResource,
+      aguaResource,
+      pobrezaResource,
+      viasResource,
+    ].forEach((resource) => {
+      if (resource.status === 'error') {
+        resource.reload();
+      }
+    });
+  };
+
+  const exportCurrentConfiguration = () => {
+    const payload = {
+      activeDepartment,
+      basemap,
+      selectedDistrict,
+      visibleLayers: Object.entries(layerVisibility)
+        .filter(([, visible]) => visible)
+        .map(([key]) => key),
+      baseStats,
+      generatedAt: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'monitor-impacto-social-configuracion.json';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const setLayer = (layerId: keyof LayerVisibilityState, nextValue: boolean) => {
+    setLayerVisibility((current) => ({
+      ...current,
+      [layerId]: nextValue,
+    }));
+  };
+
+  const showAllLayers = () => {
+    setLayerVisibility({
+      routes: true,
+      water: true,
+      barrios: true,
+      manzanas: true,
+      puntos: true,
+      indigenas: true,
+      salud: true,
+      educacion: true,
+      agua: true,
+      pobreza: true,
+      vias: true,
+    });
+  };
+
+  const hideAllLayers = () => {
+    setLayerVisibility(DEFAULT_LAYERS);
+  };
+
+  const resetView = () => {
+    setSelectedDistrictKey(null);
+    setActiveDepartment(null);
+    setResetViewToken((current) => current + 1);
+  };
+
+  const handleDistrictSelection = (districtKey: string | null) => {
+    setSelectedDistrictKey(districtKey);
+    const selected = getDistrictByKey(districtOptions, districtKey);
+    if (selected) {
+      setActiveDepartment(selected.departmentCode as DepartmentCode);
     }
-  }, [showPobreza, pobrezaData]);
+  };
 
   return (
-    <div className="app-container">
-      {isLoading && (
-        <div className="loading-overlay">
-          <div className="spinner"></div>
-          <h2>Cargando Datos Geográficos...</h2>
-        </div>
-      )}
-      {isPointsLoading && (
-        <div className="loading-overlay" style={{ background: 'rgba(0,0,0,0.6)', zIndex: 10000 }}>
-          <div className="spinner"></div>
-          <h2>Cargando Miles de Puntos de Viviendas...</h2>
-        </div>
-      )}
-      
-      {isIndigenasLoading && (
-        <div className="loading-overlay" style={{ background: 'rgba(0,0,0,0.6)', zIndex: 10000 }}>
-          <div className="spinner"></div>
-          <h2>Cargando Comunidades Indígenas y Estadísticas...</h2>
+    <div className="app-shell">
+      {baseResource.status === 'loading' && (
+        <div className="loading-screen">
+          <div className="spinner" />
+          <h2>Cargando capa base geodemográfica</h2>
+          <p>Se están preparando polígonos, centroides y metadatos territoriales.</p>
         </div>
       )}
 
-      {error && !isLoading && (
-        <div className="loading-overlay" style={{ color: '#ef4444' }}>
-          <h2>Error</h2>
-          <p>{error}</p>
+      {baseResource.status === 'error' && (
+        <div className="loading-screen error-screen">
+          <h2>No se pudo cargar la capa base</h2>
+          <p>{baseResource.error}</p>
+          <button className="primary-button" onClick={baseResource.reload}>
+            Reintentar carga base
+          </button>
         </div>
       )}
 
-      {!isLoading && !error && (
+      {baseResource.status !== 'error' && baseResource.data && (
         <>
-          <Sidebar 
-            geoData={geoData} 
-            activeDepartment={activeDepartment} 
+          <Sidebar
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            activeDepartment={activeDepartment}
             setActiveDepartment={setActiveDepartment}
-            isOpen={sidebarOpen}
-            setIsOpen={setSidebarOpen}
-            showRoutes={showRoutes}
-            setShowRoutes={setShowRoutes}
-            showWater={showWater}
-            setShowWater={setShowWater}
-            showBarrios={showBarrios}
-            setShowBarrios={setShowBarrios}
-            showManzanas={showManzanas}
-            setShowManzanas={setShowManzanas}
-            showPuntos={showPuntos}
-            setShowPuntos={setShowPuntos}
-            showIndigenas={showIndigenas}
-            setShowIndigenas={setShowIndigenas}
-            showSalud={showSalud}
-            setShowSalud={setShowSalud}
-            showEducacion={showEducacion}
-            setShowEducacion={setShowEducacion}
-            showAgua={showAgua}
-            setShowAgua={setShowAgua}
-            showPobreza={showPobreza}
-            setShowPobreza={setShowPobreza}
+            basemap={basemap}
+            setBasemap={setBasemap}
+            baseStats={baseStats}
+            selectedDistrict={selectedDistrict}
+            selectedDistrictKey={selectedDistrictKey}
+            setSelectedDistrictKey={handleDistrictSelection}
+            districtOptions={districtOptions}
+            visibleLayerCount={visibleLayerCount}
+            layerVisibility={layerVisibility}
+            setLayer={setLayer}
+            showAllLayers={showAllLayers}
+            hideAllLayers={hideAllLayers}
+            layerHealthItems={layerHealthItems}
+            baseFeatureCount={baseFeatures.length}
+            optionalErrors={optionalErrors}
+            resetView={resetView}
+            retryFailedLayers={retryFailedLayers}
+            exportCurrentConfiguration={exportCurrentConfiguration}
           />
-          <MapViewer 
-            geoData={geoData} 
-            activeDepartment={activeDepartment} 
-            rutasData={rutasData}
-            hidroData={hidroData}
-            barriosData={barriosData}
-            manzanasData={manzanasData}
-            viviendasData={viviendasData}
-            indigenasData={indigenasData}
-            indigenasStats={indigenasStats}
-            indigenasPueblosMapping={indigenasPueblosMapping}
-            saludData={saludData}
-            educacionData={educacionData}
-            aguaData={aguaData}
-            pobrezaData={pobrezaData}
-            showRoutes={showRoutes}
-            showWater={showWater}
-            showBarrios={showBarrios}
-            showManzanas={showManzanas}
-            showPuntos={showPuntos}
-            showIndigenas={showIndigenas}
-            showSalud={showSalud}
-            showEducacion={showEducacion}
-            showAgua={showAgua}
-            showPobreza={showPobreza}
-          />
+
+          <main className="map-main">
+            <MapViewer
+              baseData={baseResource.data}
+              activeDepartment={activeDepartment}
+              selectedDistrictKey={selectedDistrictKey}
+              onSelectDistrict={handleDistrictSelection}
+              basemap={basemap}
+              resetViewToken={resetViewToken}
+              routesData={routesResource.data}
+              waterData={waterResource.data}
+              barriosData={barriosResource.data}
+              manzanasData={manzanasResource.data}
+              viviendasFeatures={mergedHousingFeatures}
+              indigenasData={indigenasGeoResource.data}
+              indigenasStats={indigenasStatsResource.data}
+              indigenasPueblosMapping={indigenasPueblosResource.data}
+              saludData={saludResource.data}
+              educacionData={educacionResource.data}
+              aguaData={aguaResource.data}
+              pobrezaData={pobrezaResource.data}
+              viasData={viasResource.data}
+              layerVisibility={layerVisibility}
+              selectedDistrict={selectedDistrict}
+            />
+          </main>
         </>
       )}
     </div>

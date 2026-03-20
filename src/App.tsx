@@ -7,7 +7,6 @@ function App() {
   const [geoData, setGeoData] = useState<GeoJsonObject | null>(null);
   const [rutasData, setRutasData] = useState<GeoJsonObject | null>(null);
   const [hidroData, setHidroData] = useState<GeoJsonObject | null>(null);
-  const [hidroData, setHidroData] = useState<GeoJsonObject | null>(null);
   const [barriosData, setBarriosData] = useState<GeoJsonObject | null>(null);
   const [manzanasData, setManzanasData] = useState<GeoJsonObject | null>(null);
   const [viviendasData, setViviendasData] = useState<any[]>([]); // Array to hold features

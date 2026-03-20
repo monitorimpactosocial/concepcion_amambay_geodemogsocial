@@ -420,7 +420,8 @@ export default function MapViewer({
             pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 5, fillColor: '#22c55e', color: 'white', weight: 1, fillOpacity: 0.8 })}
             onEachFeature={(feature, layer) => {
               const props = feature.properties || {};
-              const name = props.nombre || props.establecim || props.DESC || props.Nombre || 'Local de Salud';
+              const name = (props.nombref && props.nombref.trim() !== "") ? props.nombref 
+                           : (props.descref || props.nombre || props.establecim || props.DESC || props.Nombre || 'Local de Salud');
               layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #22c55e">${name}</strong></div>`, { sticky: true });
             }}
             key={`salud-${activeDepartment || 'all'}`}
@@ -437,7 +438,8 @@ export default function MapViewer({
             pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 5, fillColor: '#f97316', color: 'white', weight: 1, fillOpacity: 0.8 })}
             onEachFeature={(feature, layer) => {
               const props = feature.properties || {};
-              const name = props.nombre || props.institucio || props.DESC || props.Nombre || 'Local Educativo';
+              const name = (props.nombref && props.nombref.trim() !== "") ? props.nombref 
+                           : (props.descref || props.nombre || props.institucio || props.DESC || props.Nombre || 'Local Educativo');
               layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #f97316">${name}</strong></div>`, { sticky: true });
             }}
             key={`educacion-${activeDepartment || 'all'}`}
@@ -454,7 +456,10 @@ export default function MapViewer({
             pointToLayer={(_, latlng) => new L.CircleMarker(latlng, { radius: 5, fillColor: '#06b6d4', color: 'white', weight: 1, fillOpacity: 0.8 })}
             onEachFeature={(feature, layer) => {
               const props = feature.properties || {};
-              const name = props.nombre || props.comunidad || props.DESC || props.Nombre || 'Tanque de Agua';
+              // En tanques de agua o similares usan nombref y descref
+              const name = (props.nombref && props.nombref.trim() !== "") ? props.nombref 
+                           : (props.descref || props.nombre || props.comunidad || props.DESC || props.Nombre || 'Tanque de Agua');
+              
               layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #06b6d4">${name}</strong></div>`, { sticky: true });
             }}
             key={`agua-${activeDepartment || 'all'}`}

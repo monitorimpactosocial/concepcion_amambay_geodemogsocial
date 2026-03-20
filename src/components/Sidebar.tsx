@@ -27,6 +27,8 @@ interface SidebarProps {
   setShowAgua: (show: boolean) => void;
   showPobreza: boolean;
   setShowPobreza: (show: boolean) => void;
+  showVias: boolean;
+  setShowVias: (show: boolean) => void;
 }
 
 export default function Sidebar({ 
@@ -54,7 +56,9 @@ export default function Sidebar({
   showAgua,
   setShowAgua,
   showPobreza,
-  setShowPobreza
+  setShowPobreza,
+  showVias,
+  setShowVias
 }: SidebarProps) {
   // Calculate stats from GeoJSON
   let totalHogares = 0;
@@ -242,6 +246,14 @@ export default function Sidebar({
             >
               <AlertTriangle size={16} style={{ color: showPobreza ? '#991b1b' : 'inherit' }} />
               <span>Riesgo Inundación</span>
+            </button>
+            <button 
+              className={`filter-btn ${showVias ? 'active' : ''}`}
+              onClick={() => setShowVias(!showVias)}
+              style={{ justifyContent: 'flex-start', gap: '12px' }}
+            >
+              <Route size={16} style={{ color: showVias ? '#f97316' : 'inherit' }} />
+              <span>Vías Principales</span>
             </button>
           </div>
         </div>

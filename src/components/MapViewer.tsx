@@ -26,10 +26,12 @@ interface MapViewerProps {
   educacionData?: GeoJsonObject | null;
   aguaData?: GeoJsonObject | null;
   pobrezaData?: GeoJsonObject | null;
+  viasData?: GeoJsonObject | null;
   showSalud?: boolean;
   showEducacion?: boolean;
   showAgua?: boolean;
   showPobreza?: boolean;
+  showVias?: boolean;
 }
 
 export default function MapViewer({ 
@@ -56,7 +58,8 @@ export default function MapViewer({
   showSalud,
   showEducacion,
   showAgua,
-  showPobreza
+  showPobreza,
+  showVias
 }: MapViewerProps) {
   const mapRef = useRef<LeafletMap>(null);
 
@@ -117,7 +120,7 @@ export default function MapViewer({
 
   // Helper for filtering by Concepcion (01) and Amambay (13) + Active Department
   const filterDpto = (feature: any) => {
-    const dpto = feature?.properties?.DPTO || feature?.properties?.dpto;
+    const dpto = feature?.properties?.DPTO || feature?.properties?.dpto || feature?.properties?.Dpto;
     if (!dpto) return false; // Hide items with no explicit department
     if (activeDepartment) return dpto === activeDepartment;
     return dpto === '01' || dpto === '13';
@@ -206,6 +209,10 @@ export default function MapViewer({
               weight: 1.5,
               opacity: 0.8
             })}
+            onEachFeature={(feature, layer) => {
+              const name = feature.properties?.NOMBRE || feature.properties?.DESC_VIA || 'Ruta';
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong>${name}</strong></div>`, { sticky: true });
+            }}
             key={`rutas-${activeDepartment || 'all'}`}
           />
         )}
@@ -221,6 +228,10 @@ export default function MapViewer({
               opacity: 0.7,
               fillOpacity: 0.5
             })}
+            onEachFeature={(feature, layer) => {
+              const name = feature.properties?.DESC_HIDRO || feature.properties?.NOMBRE || 'Cuerpo de Agua';
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong>${name}</strong></div>`, { sticky: true });
+            }}
             key={`hidro-${activeDepartment || 'all'}`}
           />
         )}
@@ -236,6 +247,10 @@ export default function MapViewer({
               opacity: 0.9,
               dashArray: '4 4'
             })}
+            onEachFeature={(feature, layer) => {
+              const name = feature.properties?.BARLO_DESC || feature.properties?.DESC || 'Barrio/Localidad';
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #ec4899">${name}</strong></div>`, { sticky: true });
+            }}
             key={`barrios-${activeDepartment || 'all'}`}
           />
         )}
@@ -251,6 +266,10 @@ export default function MapViewer({
               opacity: 0.9,
               fillOpacity: 0.2
             })}
+            onEachFeature={(feature, layer) => {
+              const name = feature.properties?.MZ || feature.properties?.OBJECTID || 'Manzana';
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #ef4444">Manzana ${name}</strong></div>`, { sticky: true });
+            }}
             key={`manzanas-${activeDepartment || 'all'}`}
           />
         )}
@@ -402,7 +421,7 @@ export default function MapViewer({
             onEachFeature={(feature, layer) => {
               const props = feature.properties || {};
               const name = props.nombre || props.establecim || props.DESC || props.Nombre || 'Local de Salud';
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #22c55e">${name}</strong></div>`);
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #22c55e">${name}</strong></div>`, { sticky: true });
             }}
             key={`salud-${activeDepartment || 'all'}`}
           />
@@ -419,7 +438,7 @@ export default function MapViewer({
             onEachFeature={(feature, layer) => {
               const props = feature.properties || {};
               const name = props.nombre || props.institucio || props.DESC || props.Nombre || 'Local Educativo';
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #f97316">${name}</strong></div>`);
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #f97316">${name}</strong></div>`, { sticky: true });
             }}
             key={`educacion-${activeDepartment || 'all'}`}
           />
@@ -436,7 +455,7 @@ export default function MapViewer({
             onEachFeature={(feature, layer) => {
               const props = feature.properties || {};
               const name = props.nombre || props.comunidad || props.DESC || props.Nombre || 'Tanque de Agua';
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #06b6d4">${name}</strong></div>`);
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #06b6d4">${name}</strong></div>`, { sticky: true });
             }}
             key={`agua-${activeDepartment || 'all'}`}
           />
@@ -453,9 +472,39 @@ export default function MapViewer({
             onEachFeature={(feature, layer) => {
               const props = feature.properties || {};
               const name = props.nombre || props.barrio || props.dist_des || props.disbar_des || props.DESC || props.Nombre || 'Zona de Riesgo/Pobreza';
-              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #991b1b">${name}</strong></div>`);
+              layer.bindTooltip(`<div style="font-family: var(--font-primary)"><strong style="color: #991b1b">${name}</strong></div>`, { sticky: true });
             }}
             key={`pobreza-${activeDepartment || 'all'}`}
+          />
+        )}
+
+        {/* Formatted Vias Principales por Tipo */}
+        {showVias && viasData && (
+          <GeoJSON
+            data={viasData}
+            filter={filterDpto}
+            style={(feature) => {
+              const tipo = feature?.properties?.TIPO_VIA;
+              let color = '#a1a1aa'; // gray fallback
+              let weight = 1.5;
+              if (tipo === '5') { color = '#ef4444'; weight = 3; } // Ruta Nacional
+              else if (tipo === '3') { color = '#f97316'; weight = 2.5; } // Departamental
+              else if (tipo === '1') { color = '#eab308'; weight = 2; } // Vecinal
+              return { color, weight, opacity: 0.9 };
+            }}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.NOMBRE || props.Nombre || 'Vía';
+              const tipoDesc = props.DesTipoVia || 'Camino';
+              const rodadura = props.DesRodaVia || '';
+              layer.bindTooltip(`
+                <div style="font-family: var(--font-primary)">
+                  <strong style="color: var(--text-primary); font-size: 1.1em">${name}</strong><br/>
+                  <span style="font-size: 0.9em; color: var(--text-secondary)">${tipoDesc} ${rodadura ? `(${rodadura})` : ''}</span>
+                </div>
+              `, { sticky: true, className: 'custom-tooltip' });
+            }}
+            key={`vias-${activeDepartment || 'all'}`}
           />
         )}
 

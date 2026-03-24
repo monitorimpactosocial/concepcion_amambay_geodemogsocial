@@ -12,7 +12,7 @@ import {
 } from 'react-leaflet';
 import L, { type PathOptions } from 'leaflet';
 import type { Feature, GeoJsonObject } from 'geojson';
-import type { BasemapKey, DepartmentCode, DistrictOption, LayerVisibilityState } from '../types';
+import type { BasemapKey, DepartmentCode, DistrictOption, LayerVisibilityState, UPM } from '../types';
 import {
   buildDistrictKey,
   buildFeatureCollection,
@@ -72,6 +72,7 @@ interface MapViewerProps {
   censoData?: GeoJsonObject | null;
   layerVisibility: LayerVisibilityState;
   selectedDistrict: DistrictOption | null;
+  sampledData?: UPM[];
 }
 
 const BASEMAPS: Record<
@@ -241,6 +242,7 @@ export default function MapViewer({
   censoData,
   layerVisibility,
   selectedDistrict,
+  sampledData = [],
 }: MapViewerProps) {
   const [zoomLevel, setZoomLevel] = useState(7);
 
@@ -732,6 +734,36 @@ export default function MapViewer({
                 );
               }}
             />
+          </Pane>
+        )}
+
+        {sampledData && sampledData.length > 0 && (
+          <Pane name="sampled-upms" style={{ zIndex: 600 }}>
+            {sampledData.map((upm, idx) => (
+              <CircleMarker
+                key={`upm-${idx}`}
+                center={[upm.lat, upm.lng]}
+                radius={8}
+                pathOptions={{
+                  fillColor: '#f59e0b',
+                  color: '#ffffff',
+                  weight: 2,
+                  fillOpacity: 1,
+                  opacity: 1
+                }}
+              >
+                <Tooltip sticky className="custom-tooltip">
+                  <div className="tooltip-react-shell large">
+                    <strong style={{ color: '#d97706' }}>UPM Seleccionada (Muestra)</strong>
+                    <span>Tipo: {upm.tipo === 'indigena' ? 'Indígena' : 'Regular'}</span>
+                    <span>Distrito: {upm.dist}</span>
+                    <span>Barrio/Comunidad: {upm.barrio}</span>
+                    <span>Manzana: {upm.manzana}</span>
+                    <span>Hogares: {upm.hogares}</span>
+                  </div>
+                </Tooltip>
+              </CircleMarker>
+            ))}
           </Pane>
         )}
       </MapContainer>

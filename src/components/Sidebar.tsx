@@ -56,6 +56,7 @@ interface SidebarProps {
   resetView: () => void;
   retryFailedLayers: () => void;
   exportCurrentConfiguration: () => void;
+  onOpenGenerator: () => void;
 }
 
 const LAYER_LABELS: Array<{
@@ -108,6 +109,7 @@ export default function Sidebar({
   resetView,
   retryFailedLayers,
   exportCurrentConfiguration,
+  onOpenGenerator,
 }: SidebarProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -144,10 +146,14 @@ export default function Sidebar({
             </p>
           </div>
 
-          <button className="secondary-button" type="button" onClick={exportCurrentConfiguration}>
-            <FileDown size={16} />
-            Exportar estado
-          </button>
+          <div style={{ display: 'flex', gap: '8px', zIndex: 1000, position: 'absolute', top: '22px', right: '18px' }}>
+            <button className="primary-button" type="button" onClick={onOpenGenerator} style={{ padding: '8px 12px', fontSize: '0.85rem' }}>
+              <Calculator size={15} /> Generar Muestra
+            </button>
+            <button className="secondary-button" type="button" onClick={exportCurrentConfiguration} style={{ padding: '8px', width: '36px', justifyContent: 'center' }}>
+              <FileDown size={15} />
+            </button>
+          </div>
         </div>
 
         <section className="card-grid">

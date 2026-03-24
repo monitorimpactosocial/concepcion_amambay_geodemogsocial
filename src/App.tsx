@@ -8,7 +8,9 @@ import type {
   DepartmentCode,
   LayerHealthItem,
   LayerVisibilityState,
+  UPM,
 } from './types';
+import SamplingPanel from './components/SamplingPanel';
 import {
   buildDistrictOptions,
   computeBaseStats,
@@ -104,6 +106,10 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(storedState.sidebarOpen);
   const [selectedDistrictKey, setSelectedDistrictKey] = useState<string | null>(null);
   const [resetViewToken, setResetViewToken] = useState(0);
+  
+  // Sampling State
+  const [samplingOpen, setSamplingOpen] = useState(false);
+  const [sampledData, setSampledData] = useState<UPM[]>([]);
 
   const baseResource = useJsonResource<GeoJsonObject>('concepcion_amambay_hogares.geojson', true);
   const routesResource = useJsonResource<GeoJsonObject>(
@@ -606,6 +612,7 @@ function App() {
             resetView={resetView}
             retryFailedLayers={retryFailedLayers}
             exportCurrentConfiguration={exportCurrentConfiguration}
+            onOpenGenerator={() => setSamplingOpen(true)}
           />
 
           <main className="map-main">
@@ -633,8 +640,16 @@ function App() {
               censoData={censoResource.data}
               layerVisibility={layerVisibility}
               selectedDistrict={selectedDistrict}
+              sampledData={sampledData}
             />
           </main>
+          
+          <SamplingPanel 
+             isOpen={samplingOpen} 
+             onClose={() => setSamplingOpen(false)} 
+             onSampleGenerated={setSampledData}
+             activeDepartment={activeDepartment}
+          />
         </>
       )}
     </div>

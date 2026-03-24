@@ -53,3 +53,15 @@ export interface LayerHealthItem {
   error: string | null;
   count: number | null;
 }
+
+export interface UPM {
+  id: string;
+  tipo: string;
+  dpto: string;
+  dist: string;
+  barrio: string;
+  manzana: string;
+  hogares: number;
+  lng: number;
+  lat: number;
+}

@@ -18,7 +18,6 @@ import {
   buildFeatureCollection,
   featureMatchesDepartment,
   featureMatchesDistrict,
-  filterFeaturesByDepartment,
   getBoundsFromFeatures,
   getDepartmentCode,
   getDepartmentName,

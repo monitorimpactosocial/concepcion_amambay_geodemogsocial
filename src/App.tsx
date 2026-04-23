@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { GeoJsonObject } from 'geojson';
 import MapViewer from './components/MapViewer';
 import Sidebar from './components/Sidebar';
+import NavBar from './components/NavBar';
+import DemographyView from './views/DemographyView';
+import ProjectionsView from './views/ProjectionsView';
+import SocialView from './views/SocialView';
+import ExportPanel from './components/ExportPanel';
 import { useJsonResource } from './hooks/useJsonResource';
 import type {
   BasemapKey,
@@ -9,6 +14,7 @@ import type {
   LayerHealthItem,
   LayerVisibilityState,
   UPM,
+  ViewId,
 } from './types';
 import SamplingPanel from './components/SamplingPanel';
 import {
@@ -110,6 +116,7 @@ function App() {
   // Sampling State
   const [samplingOpen, setSamplingOpen] = useState(false);
   const [sampledData, setSampledData] = useState<UPM[]>([]);
+  const [activeView, setActiveView] = useState<ViewId>('mapa');
 
   const baseResource = useJsonResource<GeoJsonObject>('concepcion_amambay_hogares.geojson', true);
   const routesResource = useJsonResource<GeoJsonObject>(
@@ -569,7 +576,28 @@ function App() {
 
   return (
     <div className="app-shell">
-      {baseResource.status === 'loading' && (
+      <NavBar activeView={activeView} onViewChange={setActiveView} />
+
+      {/* Vistas no-mapa: demografía, proyecciones, indicadores sociales */}
+      {activeView === 'demografia' && (
+        <div className="view-main"><DemographyView /></div>
+      )}
+      {activeView === 'proyecciones' && (
+        <div className="view-main"><ProjectionsView /></div>
+      )}
+      {activeView === 'social' && (
+        <div className="view-main"><SocialView /></div>
+      )}
+
+      {/* Panel exportar Excel — visible en todas las vistas no-mapa */}
+      {activeView !== 'mapa' && (
+        <div className="export-float">
+          <ExportPanel />
+        </div>
+      )}
+
+      {/* Vista mapa (con loading/error igual que antes) */}
+      {activeView === 'mapa' && baseResource.status === 'loading' && (
         <div className="loading-screen">
           <div className="spinner" />
           <h2>Cargando capa base geodemográfica</h2>
@@ -577,7 +605,7 @@ function App() {
         </div>
       )}
 
-      {baseResource.status === 'error' && (
+      {activeView === 'mapa' && baseResource.status === 'error' && (
         <div className="loading-screen error-screen">
           <h2>No se pudo cargar la capa base</h2>
           <p>{baseResource.error}</p>
@@ -587,7 +615,7 @@ function App() {
         </div>
       )}
 
-      {baseResource.status !== 'error' && baseResource.data && (
+      {activeView === 'mapa' && baseResource.status !== 'error' && baseResource.data && (
         <>
           <Sidebar
             sidebarOpen={sidebarOpen}

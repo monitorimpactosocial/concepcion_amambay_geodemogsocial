@@ -13,7 +13,6 @@ import { CENSUS } from '../data/census2022';
 type PoblacionKey = 'total' | 'indigena';
 
 const pct = (n: number) => n.toFixed(1) + '%';
-const fmt = (n: number) => n.toLocaleString('es-PY');
 
 const TABS = [
   { id: 'salud',      label: 'Salud',       icon: HeartPulse },

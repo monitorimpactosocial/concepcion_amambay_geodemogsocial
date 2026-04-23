@@ -12,7 +12,6 @@ import { CENSUS } from '../data/census2022';
 import type { ScenarioKey } from '../data/projectionEngine';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('es-PY');
-const pct = (n: number, d = 1) => n.toFixed(d) + '%';
 
 const SCENARIO_COLORS: Record<ScenarioKey, string> = {
   optimista:  '#059669',

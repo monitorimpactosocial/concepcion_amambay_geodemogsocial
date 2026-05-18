@@ -272,6 +272,35 @@ body {
   font-weight: 600;
 }
 
+.app-fallback {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-app);
+}
+
+.app-fallback-panel {
+  width: min(520px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-panel-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.app-fallback-panel h1 {
+  margin: 0 0 12px;
+  font-size: 1.5rem;
+}
+
+.app-fallback-panel p:not(.eyebrow) {
+  margin: 0 0 18px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 .view-container {
   max-width: 1280px;
   margin: 0 auto;

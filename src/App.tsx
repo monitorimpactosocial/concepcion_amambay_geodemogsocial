@@ -49,6 +49,20 @@ const DEFAULT_LAYERS: LayerVisibilityState = {
   censo: false,
 };
 
+const BASEMAP_OPTIONS: BasemapKey[] = ['light', 'dark', 'satellite'];
+const DEPARTMENT_OPTIONS: DepartmentCode[] = ['01', '13', null];
+const PROJECTION_OPTIONS: ProjectionScenarioKey[] = ['optimista', 'medio', 'pesimista'];
+const IMPACT_OPTIONS: ImpactScenarioKey[] = ['conservador', 'medio', 'transformador'];
+
+function pickAllowed<T>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
+function pickHorizonYear(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 2042;
+  return Math.min(2052, Math.max(2027, value));
+}
+
 function readStoredState(): {
   activeDepartment: DepartmentCode;
   basemap: BasemapKey;
@@ -95,8 +109,8 @@ function readStoredState(): {
     }>;
 
     return {
-      activeDepartment: parsed.activeDepartment ?? null,
-      basemap: parsed.basemap ?? 'light',
+      activeDepartment: pickAllowed(parsed.activeDepartment, DEPARTMENT_OPTIONS, null),
+      basemap: pickAllowed(parsed.basemap, BASEMAP_OPTIONS, 'light'),
       layers: {
         ...DEFAULT_LAYERS,
         ...(parsed.layers ?? {}),
@@ -105,9 +119,9 @@ function readStoredState(): {
         typeof parsed.sidebarOpen === 'boolean'
           ? parsed.sidebarOpen
           : window.innerWidth >= 1180,
-      projectionScenario: parsed.projectionScenario ?? 'medio',
-      impactScenario: parsed.impactScenario ?? 'medio',
-      horizonYear: parsed.horizonYear ?? 2042,
+      projectionScenario: pickAllowed(parsed.projectionScenario, PROJECTION_OPTIONS, 'medio'),
+      impactScenario: pickAllowed(parsed.impactScenario, IMPACT_OPTIONS, 'medio'),
+      horizonYear: pickHorizonYear(parsed.horizonYear),
     };
   } catch {
     return {

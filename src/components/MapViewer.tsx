@@ -266,6 +266,7 @@ export default function MapViewer({
   selectedDistrict,
 }: MapViewerProps) {
   const [zoomLevel, setZoomLevel] = useState(7);
+  const activeBasemap = BASEMAPS[basemap] ?? BASEMAPS.light;
 
   const visibleBaseFeatures = useMemo(
     () =>
@@ -322,7 +323,7 @@ export default function MapViewer({
           resetViewToken={resetViewToken}
         />
 
-        <TileLayer attribution={BASEMAPS[basemap].attribution} url={BASEMAPS[basemap].url} />
+        <TileLayer attribution={activeBasemap.attribution} url={activeBasemap.url} />
 
         <Pane name="base-polygons" style={{ zIndex: 200 }}>
           <GeoJSON

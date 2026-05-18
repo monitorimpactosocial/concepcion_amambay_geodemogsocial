@@ -1,5 +1,25 @@
 ﻿# Bitacora operativa
 
+## 2026-05-18 - Hotfix de pantalla en blanco por estado local antiguo
+
+### Diagnostico atendido
+
+- Se reprodujo el reporte "carga solo por un instante y luego desaparece la vista" forzando un `localStorage` heredado con `basemap: "osm"`.
+- La app mostraba la carga inicial, terminaba de leer la capa base y luego React quedaba en blanco por `TypeError: Cannot read properties of undefined (reading 'attribution')`.
+- El fallo afectaba a navegadores que ya habian usado versiones anteriores con claves de mapa no compatibles con la version actual.
+
+### Cambios aplicados
+
+- `src/App.tsx`: sanea valores persistidos de departamento, mapa base, escenarios y horizonte antes de inicializar la app.
+- `src/components/MapViewer.tsx`: usa `light` como mapa base seguro si llega una clave no reconocida.
+- `src/components/AppErrorBoundary.tsx`: agrega recuperacion visible para errores no controlados, con opcion de limpiar estado local y recargar.
+- `src/main.tsx` e `src/index.css`: integran y estilizan la recuperacion para evitar pantallas completamente en blanco.
+
+### Verificacion local
+
+- `npm run check`: exitoso.
+- Prueba forzada con `localStorage` antiguo (`basemap: "osm"`, escenarios invalidos y horizonte fuera de rango): la app cargo el mapa y reescribio valores seguros.
+
 ## 2026-05-18 - Optimizacion de carga, exportacion sin SheetJS y verificacion limpia
 
 ### Diagnostico atendido
@@ -26,10 +46,11 @@
 
 ### Estado de publicacion
 
-- Commit local preparado en clon limpio: `HEAD` local - `perf: optimizar carga y exportacion`.
-- `git push` por HTTPS no pudo completarse por falta de credenciales interactivas en la sesion (`could not read Username for 'https://github.com'`).
-- Pendiente: empujar el commit desde una sesion con credenciales GitHub disponibles.
-- Luego del push: verificar workflow `Deploy to GitHub Pages` y hacer smoke test publicado de mapa, filtros globales, reporte, exportacion Excel, capas principales y marco muestral.
+- Commit publicado: `28fc10b65d7ac36eec09977f67dc6e8190a78fbb` - `perf: optimizar carga y exportacion`.
+- `git push origin main`: exitoso.
+- Workflow `Deploy to GitHub Pages`: exitoso.
+- Workflow `pages build and deployment`: exitoso.
+- Smoke test publicado: HTML, bundle principal, capa base, marco muestral y capas GeoJSON principales responden `HTTP 200`.
 
 ## 2026-05-18 - Filtros globales, series historicas-actuales-proyectadas e hitos PARACEL
 

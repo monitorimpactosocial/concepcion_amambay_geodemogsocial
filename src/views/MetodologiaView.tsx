@@ -1,0 +1,516 @@
+import { useState } from 'react';
+import {
+  BookOpen, Database, FlaskConical, Map, Users,
+  BarChart2, TrendingUp, HeartPulse, Factory, Info,
+} from 'lucide-react';
+
+type SeccionId =
+  | 'fuentes'
+  | 'datos_geo'
+  | 'demografia'
+  | 'proyecciones'
+  | 'social'
+  | 'muestreo'
+  | 'impacto'
+  | 'glosario';
+
+const SECCIONES: { id: SeccionId; label: string; icon: React.ReactNode }[] = [
+  { id: 'fuentes',      label: 'Fuentes de datos',        icon: <Database size={14} /> },
+  { id: 'datos_geo',    label: 'Datos geoespaciales',     icon: <Map size={14} /> },
+  { id: 'demografia',   label: 'Demografía',              icon: <Users size={14} /> },
+  { id: 'proyecciones', label: 'Proyecciones',            icon: <TrendingUp size={14} /> },
+  { id: 'social',       label: 'Indicadores sociales',    icon: <HeartPulse size={14} /> },
+  { id: 'muestreo',     label: 'Muestreo PPS',            icon: <BarChart2 size={14} /> },
+  { id: 'impacto',      label: 'Impacto PARACEL',         icon: <Factory size={14} /> },
+  { id: 'glosario',     label: 'Glosario',                icon: <BookOpen size={14} /> },
+];
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="metod-section">
+      <h3 className="metod-section-title">{title}</h3>
+      <div className="metod-section-body">{children}</div>
+    </div>
+  );
+}
+
+function Tabla({
+  headers, rows,
+}: { headers: string[]; rows: (string | React.ReactNode)[][] }) {
+  return (
+    <div style={{ overflowX: 'auto', marginTop: 12 }}>
+      <table className="metod-table">
+        <thead>
+          <tr>{headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i}>{row.map((cell, j) => <td key={j}>{cell}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Formula({ code }: { code: string }) {
+  return <pre className="metod-formula">{code}</pre>;
+}
+
+function Nota({ children }: { children: React.ReactNode }) {
+  return <div className="metod-nota"><Info size={13} /><span>{children}</span></div>;
+}
+
+// ── CONTENIDOS POR SECCIÓN ──────────────────────────────────────────────────
+
+function SeccionFuentes() {
+  return (
+    <>
+      <Section title="Fuentes primarias utilizadas">
+        <Tabla
+          headers={['Fuente', 'Año', 'Cobertura', 'Variables principales']}
+          rows={[
+            ['INE — Censo Nacional de Población y Viviendas', '2022', 'Nacional (desagregado a distrito)', 'Población por sexo/edad, viviendas, hogares, comunidades indígenas, acceso a servicios'],
+            ['INE — IV Censo Nacional para Pueblos Indígenas', '2022', 'Nacional', 'Población indígena por pueblo, familia lingüística, departamento y distrito'],
+            ['DGEEC — Encuesta Permanente de Hogares (EPH)', '2016–2022', 'Nacional / departamental', 'Empleo, ingresos, pobreza, educación, salud, vivienda'],
+            ['INE — Sistema de Información de Estadísticas Vitales', '2010–2022', 'Departamental', 'Nacimientos, defunciones, tasas vitales'],
+            ['CELADE/CEPAL — Tablas de mortalidad modelo', 'Referencia', 'Regional', 'Coale-Demeny West: tasas quinquenales de mortalidad por edad'],
+            ['Ministerio de Salud Pública (MSPAS)', '2022', 'Departamental', 'Locales de salud, equipamiento, recursos humanos'],
+            ['Ministerio de Educación y Ciencias (MEC)', '2022', 'Departamental', 'Locales educativos, matrícula, cobertura'],
+            ['SENASA / ESSAP', '2022', 'Puntual', 'Tanques comunitarios, cobertura de agua potable'],
+            ['DGEEC — Atlas de Pobreza y Vulnerabilidad', '2022', 'Distrital', 'Incidencia de pobreza, hogares sin servicios básicos'],
+            ['Secretaría de Emergencia Nacional (SEN)', '2022', 'Puntual', 'Área expuesta a inundaciones'],
+            ['SENAVE / MAG — Uso de suelos', '2020–2022', 'Departamental', 'Cobertura vegetal, categorías de uso de suelo agrícola y forestal'],
+            ['Dirección de Vialidad (MOPC)', '2022', 'Nacional', 'Red vial: rutas, caminos secundarios, accesibilidad'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Fuentes cartográficas">
+        <Tabla
+          headers={['Capa', 'Proveedor', 'Formato', 'Observación']}
+          rows={[
+            ['Hogares/barrios/manzanas censales', 'DGEEC / INE 2022', 'GeoJSON (polígonos)', 'Capa base de la aplicación; identificador único de hogar, manzana, barrio y distrito'],
+            ['Hidrografía', 'IGM / DGEEC', 'GeoJSON (polilíneas)', 'Ríos y arroyos principales de Concepción y Amambay'],
+            ['Rutas y vías', 'MOPC', 'GeoJSON (polilíneas)', 'Red vial categorizada por tipo'],
+            ['Comunidades indígenas', 'INDI / INE 2022', 'GeoJSON (puntos/polígonos)', 'Geocodificadas por centroide de comunidad'],
+            ['Locales de salud', 'MSPAS', 'GeoJSON (puntos)', 'USF, hospitales, puestos de salud'],
+            ['Locales educativos', 'MEC', 'GeoJSON (puntos)', 'Escuelas, colegios, CRE'],
+            ['Uso de suelos', 'SENAVE/MAG', 'GeoJSON (polígonos)', 'Simplificado para publicación web (stride 32/28)'],
+            ['Indicadores censales', 'DGEEC 2022', 'GeoJSON (polígonos)', 'Indicadores socioeconómicos a nivel de distrito'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Limitaciones y advertencias">
+        <ul className="metod-list">
+          <li>Los datos del Censo 2022 son el insumo más reciente disponible al momento del desarrollo. Cifras de EPH corresponden a estimaciones muestrales con intervalos de confianza no mostrados en la aplicación.</li>
+          <li>Las pirámides poblacionales de Concepción y Amambay son estimaciones derivadas de la distribución etaria nacional ajustada por perfil rural/urbano e indígena de cada departamento. No provienen de microdatos censales desagregados por edad a nivel departamental publicados por el INE.</li>
+          <li>Los indicadores sociales para población indígena se basan en la EPH 2016–2017 (DGEEC, muestra específica indígena). Para la población no indígena se usa la EPH 2022 ajustada por departamento.</li>
+          <li>Las capas de uso de suelos se publican con simplificación geométrica para cumplir el límite de tamaño de GitHub Pages (95 MiB). La versión completa está disponible en el repositorio Git LFS.</li>
+        </ul>
+      </Section>
+    </>
+  );
+}
+
+function SeccionDatosGeo() {
+  return (
+    <>
+      <Section title="Pipeline de gestión de datos geoespaciales">
+        <ol className="metod-list">
+          <li><strong>Recepción:</strong> datos originales recibidos en formatos Shape (.shp), GeoJSON o CSV con coordenadas geográficas (GCS WGS 84 / EPSG:4326).</li>
+          <li><strong>Validación:</strong> verificación de sistema de referencia, integridad topológica, campos mínimos requeridos (código de departamento, código de distrito, nombre).</li>
+          <li><strong>Normalización:</strong> estandarización de nombres de campo mediante la función <code>normalizeDpto()</code> en <code>src/utils/geo.ts</code>. Convierte variantes como <code>DPTO</code>, <code>dpto</code>, <code>Dpto_Desc</code>, <code>DPTO_DESC</code> a un código único de dos caracteres ('01' para Concepción, '13' para Amambay).</li>
+          <li><strong>Conversión a GeoJSON:</strong> todas las capas se publican en GeoJSON (RFC 7946), con coordenadas en grados decimales WGS 84.</li>
+          <li><strong>Almacenamiento LFS:</strong> archivos mayores a 50 MB se almacenan en Git LFS. El workflow de GitHub Actions ejecuta <code>git lfs pull</code> antes del build para obtener los archivos reales.</li>
+          <li><strong>Simplificación para Pages:</strong> <code>scripts/prepare_pages_assets.py</code> simplifica <code>uso_de_suelo_concepcion.geojson</code> (stride 32) y <code>uso_de_suelo_amambay.geojson</code> (stride 28) si superan 95 MiB, eliminando vértices intermedios y propiedades no esenciales.</li>
+          <li><strong>Validación post-build:</strong> el mismo script verifica que ningún archivo en <code>dist/</code> sea un puntero LFS ni supere 95 MiB antes del deploy.</li>
+        </ol>
+      </Section>
+
+      <Section title="Normalización de campos geográficos">
+        <p className="metod-p">La función central de normalización está en <code>src/utils/geo.ts</code>. Resuelve la heterogeneidad de esquemas entre capas:</p>
+        <Tabla
+          headers={['Campo fuente', 'Variantes aceptadas', 'Valor normalizado']}
+          rows={[
+            ['Código de departamento', 'DPTO, dpto, Dpto, cod_dpto, codigo_dpto', "'01' (Concepción), '13' (Amambay)"],
+            ['Nombre de departamento', 'DPTO_DESC, dpto_desc, NOM_DPTO', 'String normalizado'],
+            ['Código de distrito', 'DIST, dist, cod_dist, distrito', 'String de 4 caracteres'],
+            ['Nombre de distrito', 'DIST_DESC, dist_desc, NOM_DIST, nombre', 'String normalizado'],
+            ['Total de hogares', 'TOTAL, total, HOG, hogares', 'Número entero'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Carga y caché de recursos">
+        <p className="metod-p">El hook <code>useJsonResource</code> (<code>src/hooks/useJsonResource.ts</code>) implementa:</p>
+        <ul className="metod-list">
+          <li>Carga diferida: solo inicia cuando la capa es activada por el usuario.</li>
+          <li>Caché en memoria: la respuesta no se repite si el estado es 'loaded'.</li>
+          <li>Verificación HTTP: si el servidor responde con código ≠ 200, la carga falla con error descriptivo.</li>
+          <li>Cancelación mediante AbortController: si el componente se desmonta antes de que la carga termine, la petición se cancela limpiamente.</li>
+          <li>Reintento explícito: el usuario puede reintentar capas con error desde el panel de salud de capas.</li>
+        </ul>
+      </Section>
+    </>
+  );
+}
+
+function SeccionDemografia() {
+  return (
+    <>
+      <Section title="Fuente y cobertura">
+        <p className="metod-p">Los datos demográficos provienen del <strong>Censo Nacional de Población y Viviendas 2022</strong> (INE), codificados en <code>src/data/census2022.ts</code>. Incluyen:</p>
+        <ul className="metod-list">
+          <li>Población total, por sexo, urbana/rural e indígena a nivel departamental.</li>
+          <li>Población por distrito (15 distritos: 10 en Concepción, 5 en Amambay).</li>
+          <li>Comunidades indígenas y población indígena por distrito.</li>
+          <li>Distribución por pueblo indígena (Cuadro A2, Censo Indígena 2022).</li>
+        </ul>
+      </Section>
+
+      <Section title="Estimación de pirámides poblacionales">
+        <p className="metod-p">Las pirámides por grupos quinquenales (0–4 a 80+) son <strong>estimaciones</strong> elaboradas así:</p>
+        <ol className="metod-list">
+          <li>Distribución etaria relativa nacional (INE 2022) como patrón base.</li>
+          <li>Ajuste por índice de ruralidad de cada departamento (mayor ruralidad → mayor proporción de grupos jóvenes).</li>
+          <li>Ajuste por proporción de población indígena (perfil más joven que la media nacional).</li>
+          <li>Totales de varones y mujeres anclados a los valores censales publicados.</li>
+        </ol>
+        <Nota>Las pirámides no provienen de microdatos censales desagregados por edad y sexo para cada departamento. Son estimaciones con error sistemático no cuantificado. No deben usarse para análisis de cohortes específicas.</Nota>
+      </Section>
+
+      <Section title="Indicadores calculados">
+        <Tabla
+          headers={['Indicador', 'Fórmula', 'Grupos etarios']}
+          rows={[
+            ['Razón de dependencia', '((jóvenes + mayores) / adultos) × 100', 'Jóvenes: 0–14; Adultos: 15–64; Mayores: 65+'],
+            ['Índice de envejecimiento', '(mayores / jóvenes) × 100', 'Jóvenes: 0–14; Mayores: 65+'],
+            ['% indígena', '(pob_indígena / pob_total) × 100', '—'],
+            ['% rural', '(pob_rural / pob_total) × 100', '—'],
+          ]}
+        />
+      </Section>
+    </>
+  );
+}
+
+function SeccionProyecciones() {
+  return (
+    <>
+      <Section title="Método de proyección">
+        <p className="metod-p">Se aplica el <strong>método cohorte-componente</strong> (Leslie Matrix approach), estándar de CELADE/CEPAL para proyecciones demográficas en América Latina. Implementado en <code>src/data/projectionEngine.ts</code>.</p>
+        <p className="metod-p">Horizonte: 2022–2052 (30 años), avance anual (1 año por iteración).</p>
+      </Section>
+
+      <Section title="Componentes del modelo">
+        <Tabla
+          headers={['Componente', 'Método', 'Parámetros']}
+          rows={[
+            ['Fecundidad', 'Tasas específicas por grupo etario (15–49), patrón relativo estándar Paraguay, decline logístico de TGF', 'TGF inicio, TGF fin'],
+            ['Mortalidad', 'Tablas Coale-Demeny West (modelo regional), interpolación lineal entre dos niveles de e(0)', 'e(0) hombres inicio/fin, e(0) mujeres inicio/fin'],
+            ['Migración neta', 'Distribución por edad (concentrada en PEA, grupos 15–49), patrón fijo', 'Migración anual neta (pers./año)'],
+            ['Nacimientos', 'TGF aplicada a mujeres en edad reproductiva, proporción 51.2% varones', 'TGF interpolada por año'],
+            ['Defunciones', 'qx (probabilidad de muerte) aplicada a cada cohorte', 'e(0) interpolada por año'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Escenarios por departamento">
+        <Tabla
+          headers={['Departamento', 'Escenario', 'TGF 2022→2052', 'e(0)H 2022→2052', 'e(0)M 2022→2052', 'Migración neta/año']}
+          rows={[
+            ['Concepción', 'Optimista', '3.1 → 1.9', '71.5 → 78.5', '75.5 → 82.5', '−200 (emigración leve)'],
+            ['Concepción', 'Medio', '3.1 → 2.1', '71.5 → 77.0', '75.5 → 81.0', '−450'],
+            ['Concepción', 'Pesimista', '3.1 → 2.4', '71.5 → 75.5', '75.5 → 79.5', '−800'],
+            ['Amambay', 'Optimista', '2.7 → 1.8', '72.0 → 79.0', '76.0 → 83.0', '+300 (inmigración)'],
+            ['Amambay', 'Medio', '2.7 → 2.0', '72.0 → 77.5', '76.0 → 81.5', '+100'],
+            ['Amambay', 'Pesimista', '2.7 → 2.3', '72.0 → 76.0', '76.0 → 80.0', '−200'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Ecuación básica del modelo">
+        <Formula code={`P(t+1) = P(t) × S(t) + N(t) + M(t)
+
+donde:
+  P(t)  = vector población por grupo etario y sexo en el año t
+  S(t)  = vector de supervivencia (1 - qx/5, avance anual)
+  N(t)  = nacimientos distribuidos en grupo 0-4 (separados por sexo)
+  M(t)  = migración neta anual distribuida por edad según patrón fijo`} />
+        <Nota>La TGF se interpola con decline logístico (más realista que lineal para cambios de fecundidad). La e(0) se interpola linealmente entre valor inicial y final en el horizonte proyectado.</Nota>
+      </Section>
+    </>
+  );
+}
+
+function SeccionSocial() {
+  return (
+    <>
+      <Section title="Fuentes por dimensión">
+        <Tabla
+          headers={['Dimensión', 'Fuente', 'Año', 'Notas']}
+          rows={[
+            ['Salud', 'EPH 2022 (no indígena); EPH Indígena 2016–17 (indígena)', '2022 / 2017', 'Sin seguro médico, cobertura IPS, consultas médicas, presencia USF'],
+            ['Educación', 'EPH 2022 / EPH Indígena 2016–17', '2022 / 2017', 'Analfabetismo por sexo, asistencia escolar 6–17, años promedio de estudio'],
+            ['Empleo', 'EPH 2022 / EPH Indígena 2016–17', '2022 / 2017', 'Tasa de actividad por sexo, ocupación, sector económico'],
+            ['Pobreza', 'EPH 2022 / EPH Indígena 2016–17', '2022 / 2017', 'Pobreza total, pobreza extrema, líneas oficiales DGEEC'],
+            ['Vivienda', 'Censo 2022 / EPH 2022', '2022', 'Sin agua potable, sin electricidad, hacinamiento, tenencia'],
+            ['Género', 'EPH 2022 / EPH Indígena 2016–17', '2022 / 2017', 'Brechas de empleo, educación, salud por sexo'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Ajuste departamental de indicadores">
+        <p className="metod-p">La EPH tiene representatividad a nivel de área (urbana/rural) y región, pero no siempre para cada departamento individualmente. Para Concepción y Amambay se aplica el siguiente procedimiento:</p>
+        <ol className="metod-list">
+          <li>Se toma el valor nacional del indicador de la EPH como referencia.</li>
+          <li>Se aplica un factor de ajuste proporcional a la diferencia departamental observada en el Censo 2022 para variables censadas (ej. analfabetismo, acceso a agua, electricidad).</li>
+          <li>Para variables no censadas (seguro médico, empleo), se usa el valor de la región Norte/Interior directamente de la EPH.</li>
+        </ol>
+        <Nota>Los valores de indicadores tienen margen de error muestral. No deben compararse con precisión de decimales entre sí. Son referenciales para análisis de órdenes de magnitud y tendencias.</Nota>
+      </Section>
+
+      <Section title="Series históricas">
+        <p className="metod-p">Los gráficos de series históricas (2015–2022) usan estimaciones construidas interpolando entre valores de la EPH disponibles para años seleccionados. No son valores observados para cada año individual.</p>
+      </Section>
+    </>
+  );
+}
+
+function SeccionMuestreo() {
+  return (
+    <>
+      <Section title="Diseño del muestreo PPS">
+        <p className="metod-p">El generador de muestra PPS (<strong>Probability Proportional to Size</strong>) implementado en <code>src/components/SamplingPanel.tsx</code> diseña un muestreo en dos etapas para encuestas en hogares:</p>
+        <ol className="metod-list">
+          <li><strong>UPM (Unidad Primaria de Muestreo):</strong> manzana censal. Seleccionada con probabilidad proporcional al número de hogares declarados en el Censo 2022.</li>
+          <li><strong>USM (Unidad Secundaria de Muestreo):</strong> hogar. Se seleccionan al azar simple dentro de cada UPM seleccionada.</li>
+        </ol>
+      </Section>
+
+      <Section title="Marco muestral">
+        <p className="metod-p">El archivo <code>data/marco_muestral_viviendas.json</code> contiene el marco muestral de unidades primarias. Cada registro incluye:</p>
+        <Tabla
+          headers={['Campo', 'Descripción']}
+          rows={[
+            ['id', 'Identificador único de manzana/UPM'],
+            ['tipo', 'Clasificación de unidad (urbana/rural)'],
+            ['dpto', 'Código de departamento'],
+            ['dist', 'Código de distrito'],
+            ['barrio', 'Nombre de barrio o localidad'],
+            ['manzana', 'Identificador de manzana censal'],
+            ['hogares', 'Total de hogares en la manzana (tamaño de la UPM)'],
+            ['lng, lat', 'Coordenadas del centroide de la manzana'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Algoritmo de selección PPS sistemático">
+        <Formula code={`Intervalo de selección k = N_hogares_total / n_UPMs_requeridas
+
+Arranque aleatorio r = aleatorio(0, k)
+
+UPM seleccionada si: suma_acumulada[i-1] < r + j*k ≤ suma_acumulada[i]
+  donde j = 0, 1, ..., n_UPMs - 1`} />
+        <Nota>La selección garantiza que manzanas con más hogares tienen mayor probabilidad de ser seleccionadas, lo que reduce la varianza del estimador sin sesgo.</Nota>
+      </Section>
+
+      <Section title="Exportación">
+        <p className="metod-p">La muestra generada se exporta en CSV con campos: id, departamento, distrito, barrio, manzana, hogares, latitud, longitud. El factor de expansión debe calcularse externamente en base al diseño final de la encuesta.</p>
+      </Section>
+    </>
+  );
+}
+
+function SeccionImpacto() {
+  return (
+    <>
+      <Section title="Metodología general">
+        <p className="metod-p">El módulo de Impacto PARACEL aplica un modelo de <strong>multiplicadores de Leontief adaptado a escala departamental</strong>, combinado con ecuaciones de migración inducida y análisis de presión territorial. Implementado en <code>src/data/impactoEngine.ts</code>.</p>
+        <Nota>Los resultados son estimaciones con supuestos explícitos. Deben contrastarse con datos reales de PARACEL cuando estén disponibles. No constituyen proyecciones oficiales.</Nota>
+      </Section>
+
+      <Section title="Parámetros del modelo (13 editables)">
+        <Tabla
+          headers={['Parámetro', 'Símbolo', 'Descripción', 'Rango típico']}
+          rows={[
+            ['Empleo directo obra', 'E_d_obra', 'Pico de empleo directo en fase constructiva', '500–5 000 pers.'],
+            ['Empleo directo operación', 'E_d_op', 'Empleos directos permanentes en operación plena', '200–3 000 pers.'],
+            ['Multiplicador indirecto', 'm_ind', 'Empleos indirectos por cada empleo directo (cadena de proveedores)', '1.0–5.0×'],
+            ['Coef. empleo inducido', 'c_ind', 'Empleos inducidos por cada 1 000 M Gs. de masa salarial local', '0.1–0.4'],
+            ['Captura local', 'c_local', '% de empleos cubiertos por mano de obra residente en la región', '10–95%'],
+            ['% no locales', 'p_ext', '% de trabajadores provenientes de fuera de Concepción/Amambay', '5–90%'],
+            ['Traen familia', 'p_fam', '% de no locales que reubican su grupo familiar', '0–80%'],
+            ['Tamaño hogar migrante', 'n_hog', 'Personas por hogar (incluyendo al trabajador)', '2–6 pers.'],
+            ['Salario mensual', 'w', 'Salario mensual promedio en Gs.', '1–15 M Gs.'],
+            ['Gasto local del salario', 'r_local', '% del salario gastado en la zona de influencia', '10–90%'],
+            ['Compras locales', 'c_comp', '% del presupuesto de compras con proveedores locales', '5–80%'],
+            ['Inicio de obra', 'T_0', 'Año de inicio de la fase constructiva', '2025–2030'],
+            ['Duración de obra', 'T_obra', 'Años de la fase constructiva', '1–6 años'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Ecuaciones del modelo">
+        <Formula code={`// Empleo
+E_indirecto  = E_d_op × m_ind
+E_local      = E_d_op × c_local / 100
+MS_anual     = E_d_op × w × 12                          // Masa salarial total
+MS_local     = MS_anual × r_local / 100                  // Masa salarial retenida
+E_inducido   = (MS_local / 1e9) × c_ind × 1000           // (por 1 000 M Gs.)
+E_total      = E_d_op + E_indirecto + E_inducido
+
+// Migración
+Trab_ext     = E_d_op × p_ext / 100                     // Trabajadores no locales
+Trab_con_fam = Trab_ext × p_fam / 100
+Trab_sin_fam = Trab_ext - Trab_con_fam
+Pob_inducida = Trab_con_fam × n_hog + Trab_sin_fam
+Hogares_adic = Trab_con_fam + ceil(Trab_sin_fam / 2.5)
+
+// Economía local
+Compras_loc  = Presupuesto_compras × c_comp / 100
+Ingreso_local = MS_local + Compras_loc
+Proveedores  ≈ Compras_loc / 8_000_000                   // (1 empresa ≈ 8 M Gs./año)`} />
+      </Section>
+
+      <Section title="Escenarios preset">
+        <Tabla
+          headers={['Parámetro clave', 'Conservador', 'Medio', 'Transformador']}
+          rows={[
+            ['Empleo directo operación', '800', '1 000', '1 200'],
+            ['Multiplicador indirecto', '1.8×', '2.5×', '3.5×'],
+            ['Captura local', '35%', '55%', '75%'],
+            ['Coef. empleo inducido', '0.12', '0.22', '0.38'],
+            ['% no locales', '65%', '45%', '25%'],
+            ['Gasto local del salario', '40%', '55%', '70%'],
+            ['% compras locales', '15%', '30%', '50%'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Distribución territorial por distrito">
+        <p className="metod-p">Los 15 distritos reciben una fracción del impacto ponderada por dos factores:</p>
+        <ul className="metod-list">
+          <li><strong>Peso de oportunidad laboral:</strong> función de la población del distrito y su composición urbano/rural (mayor peso urbano = más oportunidad de captura de empleo calificado).</li>
+          <li><strong>Peso de presión sobre servicios:</strong> proporcional a la población urbana del distrito (mayor concentración → mayor impacto sobre servicios).</li>
+        </ul>
+        <Formula code={`peso_oportunidad[i] = (pob[i] × (1 - rural_pct[i]/100) × 0.6
+                       + pob[i] × (rural_pct[i]/100) × 0.4) / suma_total
+
+peso_presion[i] = pob[i] × (1 - rural_pct[i]/100) / suma_total`} />
+        <Nota>Esta distribución es una aproximación de orden de magnitud. En una evaluación de impacto formal se requeriría análisis de accesibilidad, tiempos de viaje y mercados laborales locales específicos.</Nota>
+      </Section>
+
+      <Section title="Índices de presión territorial (0-100)">
+        <Formula code={`Pob_base = 243 291 (Concepción) + 192 989 (Amambay) = 436 280
+
+// Presión global
+presion_vivienda_global  = min(100, (hogares_adic / (pob_base / 3.5)) × 100 × 5)
+presion_servicios_global = min(100, (pob_inducida / pob_base) × 100 × 8)
+
+// Presión distrital
+presion_viv_dist[i]  = min(100, (hogares_adic[i] / (pob[i] / 3.5)) × 100 × 8)
+presion_serv_dist[i] = min(100, (resid_dist[i] / pob[i]) × 100 × 10)`} />
+        <Nota>Los índices son relativos. Un valor de 50 no significa que el 50% de las viviendas estén ocupadas; indica presión moderada-alta en el contexto del parque habitacional del distrito.</Nota>
+      </Section>
+
+      <Section title="Datos que requiere PARACEL para mejorar el modelo">
+        <ul className="metod-list">
+          <li>Producción anual esperada por etapa (t/año de madera, energía generada u otra unidad relevante).</li>
+          <li>Cronograma de construcción, puesta en marcha y operación plena.</li>
+          <li>Dotación directa prevista por área y categoría ocupacional (operarios, técnicos, profesionales, logística, seguridad).</li>
+          <li>Política de contratación local (cuotas, requisitos, alianzas con municipios).</li>
+          <li>Salarios promedio por categoría.</li>
+          <li>Presupuesto anual de bienes y servicios tercerizados.</li>
+          <li>Proveedores ya identificados por rubro y su localización.</li>
+          <li>Volumen logístico diario (camiones, turnos, rutas, puertos de entrada).</li>
+          <li>Localización de campamentos, alojamientos y/o buses de transporte de personal.</li>
+        </ul>
+      </Section>
+    </>
+  );
+}
+
+function SeccionGlosario() {
+  return (
+    <Section title="Términos y definiciones">
+      <Tabla
+        headers={['Término', 'Definición']}
+        rows={[
+          ['TGF', 'Tasa Global de Fecundidad: número promedio de hijos nacidos vivos que tendría una mujer a lo largo de su vida reproductiva si estuviera sujeta a las tasas de fecundidad por edad observadas.'],
+          ['e(0)', 'Esperanza de vida al nacer: número promedio de años que viviría un recién nacido si estuviera sujeto a las tasas de mortalidad actuales.'],
+          ['qx', 'Probabilidad de muerte en el intervalo etario [x, x+5): proporción de individuos que, habiendo sobrevivido hasta la edad x, mueren antes de cumplir x+5 años.'],
+          ['Razón de dependencia', 'Relación entre la población potencialmente inactiva (0–14 y 65+) y la población en edad activa (15–64), expresada por cada 100 personas activas.'],
+          ['Índice de envejecimiento', 'Número de personas de 65 años y más por cada 100 personas de 0 a 14 años.'],
+          ['UPM', 'Unidad Primaria de Muestreo: primera etapa de selección en un diseño de muestreo en varias etapas. En este proyecto corresponde a la manzana censal.'],
+          ['PPS', 'Probability Proportional to Size: método de selección en el que la probabilidad de inclusión de cada unidad es proporcional a su tamaño (número de hogares).'],
+          ['Empleo directo', 'Puestos de trabajo creados directamente en PARACEL (nómina propia de la empresa).'],
+          ['Empleo indirecto', 'Puestos de trabajo generados en empresas proveedoras de bienes y servicios a PARACEL.'],
+          ['Empleo inducido', 'Puestos de trabajo creados en la economía local como resultado del gasto de los hogares de trabajadores directos e indirectos.'],
+          ['Multiplicador de Leontief', 'Coeficiente que cuantifica el efecto total (directo + indirecto + inducido) de un cambio en la demanda final sobre la producción de la economía.'],
+          ['Masa salarial', 'Total de remuneraciones pagadas por la empresa en un período (mensual o anual).'],
+          ['Captura local', 'Proporción de los empleos generados que son cubiertos por trabajadores residentes en la región de influencia (Concepción y Amambay).'],
+          ['Migración inducida', 'Desplazamiento de personas desde otras regiones atraídas por las oportunidades de empleo generadas por el proyecto.'],
+          ['Presión territorial', 'Tensión sobre el parque habitacional, los servicios de salud, educación, agua y transporte de un territorio, derivada de un incremento súbito de la demanda.'],
+          ['GCS WGS 84', 'Geographic Coordinate System, World Geodetic System 1984 (EPSG:4326): sistema de referencia geográfica estándar global, con coordenadas en grados decimales.'],
+          ['Git LFS', 'Git Large File Storage: extensión de Git para versionar archivos grandes (GeoJSON, rásteres) sin saturar el repositorio principal.'],
+          ['GitHub Pages', 'Servicio de hospedaje estático de GitHub. Sirve el contenido de la rama gh-pages como sitio web público.'],
+          ['EPH', 'Encuesta Permanente de Hogares: encuesta continua de la DGEEC/INE que mide condiciones de vida, empleo, ingresos y acceso a servicios en Paraguay.'],
+          ['INE / DGEEC', 'Instituto Nacional de Estadística (antes Dirección General de Estadística, Encuestas y Censos): ente oficial de estadística de Paraguay.'],
+          ['USF', 'Unidad de Salud Familiar: primer nivel de atención del sistema de salud público paraguayo.'],
+          ['IPS', 'Instituto de Previsión Social: seguro social obligatorio para empleados en relación de dependencia en Paraguay.'],
+        ]}
+      />
+    </Section>
+  );
+}
+
+// ── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
+
+export default function MetodologiaView() {
+  const [seccion, setSeccion] = useState<SeccionId>('fuentes');
+
+  const renderSeccion = () => {
+    switch (seccion) {
+      case 'fuentes':      return <SeccionFuentes />;
+      case 'datos_geo':    return <SeccionDatosGeo />;
+      case 'demografia':   return <SeccionDemografia />;
+      case 'proyecciones': return <SeccionProyecciones />;
+      case 'social':       return <SeccionSocial />;
+      case 'muestreo':     return <SeccionMuestreo />;
+      case 'impacto':      return <SeccionImpacto />;
+      case 'glosario':     return <SeccionGlosario />;
+    }
+  };
+
+  return (
+    <div className="view-container">
+      <h2 className="view-title">
+        <FlaskConical size={20} style={{ display: 'inline', marginRight: 8, color: 'var(--emerald-600)' }} />
+        Documentación metodológica
+        <span className="view-subtitle"> — fuentes, procesos, fórmulas y supuestos</span>
+      </h2>
+
+      <div className="metod-layout">
+        <nav className="metod-nav">
+          {SECCIONES.map((s) => (
+            <button
+              key={s.id}
+              className={`metod-nav-item${seccion === s.id ? ' active' : ''}`}
+              onClick={() => setSeccion(s.id)}
+            >
+              {s.icon}
+              <span>{s.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="metod-content">
+          {renderSeccion()}
+        </div>
+      </div>
+    </div>
+  );
+}

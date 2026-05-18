@@ -7,6 +7,7 @@ import DemographyView from './views/DemographyView';
 import ProjectionsView from './views/ProjectionsView';
 import SocialView from './views/SocialView';
 import ImpactoView from './views/ImpactoView';
+import MetodologiaView from './views/MetodologiaView';
 import ExportPanel from './components/ExportPanel';
 import { useJsonResource } from './hooks/useJsonResource';
 import type {
@@ -591,6 +592,9 @@ function App() {
       )}
       {activeView === 'impacto' && (
         <div className="view-main"><ImpactoView /></div>
+      )}
+      {activeView === 'metodologia' && (
+        <div className="view-main"><MetodologiaView /></div>
       )}
 
       {/* Panel exportar Excel — visible en todas las vistas no-mapa */}

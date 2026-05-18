@@ -1,5 +1,40 @@
 # Bitacora operativa
 
+## 2026-05-18 - Cierre de publicacion Impacto PARACEL v2 y Reporte PDF
+
+### Commit y push
+
+- Commit funcional publicado: `841ba26` - `feat: expandir impacto paracel y reporte socioeconomico`.
+- Push a `origin/main`: exitoso, remoto en `841ba2687341affc0df7803f8cc64d5e90942a6c`.
+- Archivos sincronizados tambien a Drive: `G:\Mi unidad\CONCEPCION_AMAMBAY_GEODEMOGSOCIAL\concepcion_amambay_geodemogsocial`.
+
+### Workflows
+
+- `Deploy to GitHub Pages` para `841ba26`: `success` (run `26042134401`).
+- `pages build and deployment` en `gh-pages`: `success` (run `26042248127`, commit `f4bf9e7`).
+
+### Verificacion viva publicada
+
+- URL verificada: `https://monitorimpactosocial.github.io/concepcion_amambay_geodemogsocial/`.
+- HTML publicado responde `HTTP 200`.
+- Asset JS publicado: `assets/index-6sRP1h89.js` (`HTTP 200`, 924.117 bytes).
+- El bundle publicado contiene:
+  - `Reporte PDF`.
+  - `Pulso economico y social 2025-2026`.
+  - `Sensores 2025-2026`.
+  - `Indicadores 2025-2026 priorizados`.
+  - `Imprimir / PDF`.
+  - `Impacto territorial PARACEL`.
+- Recursos criticos publicados siguen siendo archivos reales, no punteros LFS:
+  - `concepcion_amambay_hogares.geojson`: `HTTP 200`, 3.006.718 bytes, `lfs=False`.
+  - `concepcion_amambay_rutas.geojson`: `HTTP 200`, 579.895 bytes, `lfs=False`.
+  - `data/marco_muestral_viviendas.json`: `HTTP 200`, 1.232.821 bytes, `lfs=False`.
+
+### Estado final de esta fase
+
+- La app publicada ya incluye el nuevo panel Impacto PARACEL v2, la pestana `Reporte PDF`, los sensores 2025-2026 y la salida de impresion/PDF.
+- Pendiente recomendado: obtener fichas/URLs completas de la matriz 2025-2026 para reemplazar fuentes declaradas por enlaces verificables en cada indicador.
+
 ## 2026-05-18 - Impacto PARACEL v2, reporte PDF y calibracion con fuentes publicas
 
 ### Pedido atendido

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList,
+  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
   LineChart, Line, ReferenceLine,
 } from 'recharts';
 import { HeartPulse, GraduationCap, Briefcase, Coins, Home, Users } from 'lucide-react';

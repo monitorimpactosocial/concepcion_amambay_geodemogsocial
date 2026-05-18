@@ -16,7 +16,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          lfs: false
+          lfs: true
+
+      - name: Fetch LFS assets
+        run: git lfs pull
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -29,6 +32,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Prepare Pages assets
+        run: python scripts/prepare_pages_assets.py dist
 
       - name: Deploy to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4

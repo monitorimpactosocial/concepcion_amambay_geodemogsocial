@@ -148,6 +148,12 @@ def main() -> int:
     for name, stride in LAND_USE_FILES.items():
         simplify_geojson(dist_dir / name, stride)
 
+    (dist_dir / ".gitattributes").write_text(
+        "*.geojson -filter -diff -merge text\n"
+        "*.json -filter -diff -merge text\n",
+        encoding="utf-8",
+    )
+
     bad_pointers = [
         path.relative_to(dist_dir).as_posix()
         for path in dist_dir.rglob("*")

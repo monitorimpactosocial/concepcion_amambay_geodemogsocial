@@ -97,3 +97,14 @@
 - Confirmar que el workflow de GitHub Actions termine correctamente.
 - Verificar en vivo que `concepcion_amambay_hogares.geojson` y las capas principales ya no devuelvan punteros LFS.
 - Hacer smoke test de la app publicada: vista mapa, filtros, capas, generador PPS y vistas analiticas.
+
+### Seguimiento del primer push
+
+- Commit `7a71dc8` fue empujado a `main` y el workflow `Deploy to GitHub Pages` termino en `success`.
+- El branch `gh-pages` avanzo a `26a76f5f89121536690d5f480e842d8e39321a0c`.
+- La verificacion viva posterior mostro que GitHub Pages seguia sirviendo punteros LFS para los GeoJSON.
+- Diagnostico: la regla raiz `.gitattributes` (`*.geojson filter=lfs`) seguia aplicandose durante el commit del contenido de `dist` hacia `gh-pages`.
+- Correccion adicional aplicada: `scripts/prepare_pages_assets.py` ahora escribe `dist/.gitattributes` con:
+  - `*.geojson -filter -diff -merge text`
+  - `*.json -filter -diff -merge text`
+- Objetivo: que los archivos publicados en `gh-pages` se commiteen como archivos web reales y no como punteros LFS.

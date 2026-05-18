@@ -34,11 +34,21 @@
   - `Actual 2022`.
   - `Operacion plena estimada`.
 
-### Pendiente operativo
+### Cierre operativo
 
-- Commit y push desde el clon limpio.
-- Sincronizar archivos modificados al repositorio operativo de Drive.
-- Verificar workflow de GitHub Pages y app publicada.
+- Commit funcional publicado: `09e65c8` - `feat: agregar filtros globales e hitos paracel`.
+- Push a `origin/main`: exitoso; remoto en `09e65c8289de59a587048aa808aaf6a6ad4939bc`.
+- Workflow `Deploy to GitHub Pages`: `success` (run `26048782280`).
+- Workflow `pages build and deployment` sobre `gh-pages`: `success` (run `26048910897`, commit `65d3aed`).
+- App publicada verificada en `https://monitorimpactosocial.github.io/concepcion_amambay_geodemogsocial/`.
+- Asset publicado nuevo: `assets/index-CY4MS425.js` (`HTTP 200`, 937.956 bytes).
+- Bundle publicado contiene:
+  - `Filtros globales`.
+  - `Serie PARACEL`.
+  - `Serie integrada`.
+  - `Actual 2022`.
+  - `Operacion plena estimada`.
+- Archivos sincronizados al repo operativo de Drive: `G:\Mi unidad\CONCEPCION_AMAMBAY_GEODEMOGSOCIAL\concepcion_amambay_geodemogsocial`.
 
 ## 2026-05-18 - Cierre de publicacion Impacto PARACEL v2 y Reporte PDF
 

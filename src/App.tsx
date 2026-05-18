@@ -3,6 +3,7 @@ import type { GeoJsonObject } from 'geojson';
 import MapViewer from './components/MapViewer';
 import Sidebar from './components/Sidebar';
 import NavBar from './components/NavBar';
+import GlobalFilterBar from './components/GlobalFilterBar';
 import DemographyView from './views/DemographyView';
 import ProjectionsView from './views/ProjectionsView';
 import SocialView from './views/SocialView';
@@ -13,8 +14,11 @@ import { useJsonResource } from './hooks/useJsonResource';
 import type {
   BasemapKey,
   DepartmentCode,
+  GlobalFilters,
+  ImpactScenarioKey,
   LayerHealthItem,
   LayerVisibilityState,
+  ProjectionScenarioKey,
   ViewId,
 } from './types';
 import {
@@ -49,6 +53,9 @@ function readStoredState(): {
   basemap: BasemapKey;
   layers: LayerVisibilityState;
   sidebarOpen: boolean;
+  projectionScenario: ProjectionScenarioKey;
+  impactScenario: ImpactScenarioKey;
+  horizonYear: number;
 } {
   if (typeof window === 'undefined') {
     return {
@@ -56,6 +63,9 @@ function readStoredState(): {
       basemap: 'light',
       layers: DEFAULT_LAYERS,
       sidebarOpen: true,
+      projectionScenario: 'medio',
+      impactScenario: 'medio',
+      horizonYear: 2042,
     };
   }
 
@@ -67,6 +77,9 @@ function readStoredState(): {
         basemap: 'light',
         layers: DEFAULT_LAYERS,
         sidebarOpen: window.innerWidth >= 1180,
+        projectionScenario: 'medio',
+        impactScenario: 'medio',
+        horizonYear: 2042,
       };
     }
 
@@ -75,6 +88,9 @@ function readStoredState(): {
       basemap: BasemapKey;
       layers: Partial<LayerVisibilityState>;
       sidebarOpen: boolean;
+      projectionScenario: ProjectionScenarioKey;
+      impactScenario: ImpactScenarioKey;
+      horizonYear: number;
     }>;
 
     return {
@@ -88,6 +104,9 @@ function readStoredState(): {
         typeof parsed.sidebarOpen === 'boolean'
           ? parsed.sidebarOpen
           : window.innerWidth >= 1180,
+      projectionScenario: parsed.projectionScenario ?? 'medio',
+      impactScenario: parsed.impactScenario ?? 'medio',
+      horizonYear: parsed.horizonYear ?? 2042,
     };
   } catch {
     return {
@@ -95,6 +114,9 @@ function readStoredState(): {
       basemap: 'light',
       layers: DEFAULT_LAYERS,
       sidebarOpen: window.innerWidth >= 1180,
+      projectionScenario: 'medio',
+      impactScenario: 'medio',
+      horizonYear: 2042,
     };
   }
 }
@@ -111,6 +133,13 @@ function App() {
   );
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(storedState.sidebarOpen);
   const [selectedDistrictKey, setSelectedDistrictKey] = useState<string | null>(null);
+  const [projectionScenario, setProjectionScenario] = useState<ProjectionScenarioKey>(
+    storedState.projectionScenario,
+  );
+  const [impactScenario, setImpactScenario] = useState<ImpactScenarioKey>(
+    storedState.impactScenario,
+  );
+  const [horizonYear, setHorizonYear] = useState<number>(storedState.horizonYear);
   const [resetViewToken, setResetViewToken] = useState(0);
   
   const [activeView, setActiveView] = useState<ViewId>('mapa');
@@ -195,9 +224,20 @@ function App() {
         basemap,
         layers: layerVisibility,
         sidebarOpen,
+        projectionScenario,
+        impactScenario,
+        horizonYear,
       }),
     );
-  }, [activeDepartment, basemap, layerVisibility, sidebarOpen]);
+  }, [
+    activeDepartment,
+    basemap,
+    horizonYear,
+    impactScenario,
+    layerVisibility,
+    projectionScenario,
+    sidebarOpen,
+  ]);
 
   const baseStats = useMemo(
     () => computeBaseStats(baseResource.data ?? null),
@@ -213,6 +253,23 @@ function App() {
     () => getDistrictByKey(districtOptions, selectedDistrictKey),
     [districtOptions, selectedDistrictKey],
   );
+
+  const globalFilters = useMemo<GlobalFilters>(() => ({
+    activeDepartment,
+    selectedDistrictKey,
+    selectedDistrictName: selectedDistrict?.districtName ?? null,
+    selectedDepartmentName: selectedDistrict?.departmentName ?? null,
+    projectionScenario,
+    impactScenario,
+    horizonYear,
+  }), [
+    activeDepartment,
+    horizonYear,
+    impactScenario,
+    projectionScenario,
+    selectedDistrict,
+    selectedDistrictKey,
+  ]);
 
   useEffect(() => {
     if (!selectedDistrict) return;
@@ -510,6 +567,9 @@ function App() {
       activeDepartment,
       basemap,
       selectedDistrict,
+      projectionScenario,
+      impactScenario,
+      horizonYear,
       visibleLayers: Object.entries(layerVisibility)
         .filter(([, visible]) => visible)
         .map(([key]) => key),
@@ -560,6 +620,9 @@ function App() {
   const resetView = () => {
     setSelectedDistrictKey(null);
     setActiveDepartment(null);
+    setProjectionScenario('medio');
+    setImpactScenario('medio');
+    setHorizonYear(2042);
     setResetViewToken((current) => current + 1);
   };
 
@@ -571,25 +634,45 @@ function App() {
     }
   };
 
+  const handleDepartmentFilterChange = (department: DepartmentCode) => {
+    setActiveDepartment(department);
+    if (!department) {
+      setSelectedDistrictKey(null);
+    }
+  };
+
   return (
     <div className="app-shell">
       <NavBar activeView={activeView} onViewChange={setActiveView} />
+      <GlobalFilterBar
+        activeDepartment={activeDepartment}
+        onDepartmentChange={handleDepartmentFilterChange}
+        selectedDistrictKey={selectedDistrictKey}
+        onDistrictChange={handleDistrictSelection}
+        districtOptions={districtOptions}
+        projectionScenario={projectionScenario}
+        onProjectionScenarioChange={setProjectionScenario}
+        impactScenario={impactScenario}
+        onImpactScenarioChange={setImpactScenario}
+        horizonYear={horizonYear}
+        onHorizonYearChange={setHorizonYear}
+      />
 
       {/* Vistas no-mapa: demografía, proyecciones, indicadores sociales */}
       {activeView === 'demografia' && (
-        <div className="view-main"><DemographyView /></div>
+        <div className="view-main"><DemographyView filters={globalFilters} /></div>
       )}
       {activeView === 'proyecciones' && (
-        <div className="view-main"><ProjectionsView /></div>
+        <div className="view-main"><ProjectionsView filters={globalFilters} /></div>
       )}
       {activeView === 'social' && (
-        <div className="view-main"><SocialView /></div>
+        <div className="view-main"><SocialView filters={globalFilters} /></div>
       )}
       {activeView === 'impacto' && (
-        <div className="view-main"><ImpactoView /></div>
+        <div className="view-main"><ImpactoView filters={globalFilters} /></div>
       )}
       {activeView === 'reporte' && (
-        <div className="view-main"><ReporteView /></div>
+        <div className="view-main"><ReporteView filters={globalFilters} /></div>
       )}
       {activeView === 'metodologia' && (
         <div className="view-main"><MetodologiaView /></div>

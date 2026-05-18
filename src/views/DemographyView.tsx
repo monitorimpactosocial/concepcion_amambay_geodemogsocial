@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, LabelList,
@@ -6,21 +6,44 @@ import {
 import { Users, Home, MapPin, TreePine } from 'lucide-react';
 import PopulationPyramid from '../components/charts/PopulationPyramid';
 import KPICard from '../components/charts/KPICard';
-import { CENSUS, getDeptStats, INDIGENAS_POR_PUEBLO } from '../data/census2022';
-import type { DeptKey } from '../data/census2022';
+import { CENSUS, INDIGENAS_POR_PUEBLO } from '../data/census2022';
+import type { GlobalFilters } from '../types';
+import {
+  aggregateCensus,
+  aggregateDeptStats,
+  deptKeysFromFilters,
+  primaryDeptFromFilters,
+  scopeLabel,
+} from '../utils/analysis';
 
 const fmt = (n: number) => n.toLocaleString('es-PY');
 const pct = (n: number) => n.toFixed(1) + '%';
 
 const COLORES_PIE = ['#059669','#2563eb','#d97706','#7c3aed','#dc2626','#0891b2','#4b5563','#ea580c'];
 
-export default function DemographyView() {
-  const [dept, setDept] = useState<DeptKey>('concepcion');
-  const d = CENSUS[dept];
-  const stats = useMemo(() => getDeptStats(dept), [dept]);
-  const pueblos = INDIGENAS_POR_PUEBLO[dept];
+export default function DemographyView({ filters }: { filters: GlobalFilters }) {
+  const deptKeys = useMemo(() => deptKeysFromFilters(filters), [filters]);
+  const primaryDept = primaryDeptFromFilters(filters);
+  const d = useMemo(() => aggregateCensus(deptKeys), [deptKeys]);
+  const stats = useMemo(() => aggregateDeptStats(deptKeys), [deptKeys]);
+  const viewScope = scopeLabel(filters);
 
-  const distritosData = d.distritos.map(di => ({
+  const pueblos = useMemo(() => {
+    if (deptKeys.length === 1) return INDIGENAS_POR_PUEBLO[primaryDept];
+    const totals = new Map<string, { pueblo: string; familia: string; poblacion: number }>();
+    deptKeys.forEach((key) => {
+      INDIGENAS_POR_PUEBLO[key].forEach((row) => {
+        const current = totals.get(row.pueblo) ?? { ...row, poblacion: 0 };
+        current.poblacion += row.poblacion;
+        totals.set(row.pueblo, current);
+      });
+    });
+    return Array.from(totals.values()).sort((a, b) => b.poblacion - a.poblacion);
+  }, [deptKeys, primaryDept]);
+
+  const distritosData = d.distritos.filter((di) =>
+    !filters.selectedDistrictName || di.nombre === filters.selectedDistrictName
+  ).map(di => ({
     nombre: di.nombre.length > 16 ? di.nombre.slice(0, 14) + '…' : di.nombre,
     nombreFull: di.nombre,
     poblacion: di.poblacion,
@@ -31,20 +54,13 @@ export default function DemographyView() {
   return (
     <div className="view-container">
       {/* Selector de departamento */}
-      <div className="dept-selector">
-        {(['concepcion', 'amambay'] as DeptKey[]).map(k => (
-          <button
-            key={k}
-            className={`dept-btn${dept === k ? ' active' : ''}`}
-            onClick={() => setDept(k)}
-          >
-            {CENSUS[k].nombre}
-          </button>
-        ))}
+      <div className="filter-scope-note">
+        Filtro aplicado: <strong>{viewScope}</strong>
+        {filters.selectedDistrictName && <span> | vista distrital donde existe base desagregada</span>}
       </div>
 
       <h2 className="view-title">
-        Demografía · {d.nombre}
+        Demografía · {viewScope}
         <span className="view-subtitle"> — Censo 2022</span>
       </h2>
 

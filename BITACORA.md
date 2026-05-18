@@ -1,5 +1,45 @@
 # Bitacora operativa
 
+## 2026-05-18 - Filtros globales, series historicas-actuales-proyectadas e hitos PARACEL
+
+### Pedido atendido
+
+- Se implemento un bloque superior de filtros globales para que el alcance territorial, distrito, escenario demografico, escenario de impacto y horizonte se apliquen de forma transversal.
+- Se agrego lectura explicita de series con tres tramos: historia disponible, punto actual/base y proyeccion.
+- Se marcaron hitos PARACEL en las series para separar impactos observados de impactos esperados.
+
+### Implementacion
+
+- `src/components/GlobalFilterBar.tsx`: nuevo componente fijo bajo el navbar con filtros globales de departamento, distrito, escenario demografico, escenario PARACEL, horizonte y reset.
+- `src/types.ts`: nuevos tipos `ProjectionScenarioKey`, `ImpactScenarioKey` y `GlobalFilters`.
+- `src/utils/analysis.ts`: helpers compartidos para convertir filtros en alcance territorial, agregar Censo/proyecciones, calcular valores historicos ponderados y reutilizar hitos PARACEL.
+- `src/App.tsx`: estado global persistido en `localStorage`, exportacion de configuracion enriquecida y paso de filtros a demografia, proyecciones, social, impacto y reporte.
+- `src/views/DemographyView.tsx`: KPIs, piramides, distritos y pueblos indigenas responden al alcance global; cuando hay distrito seleccionado se muestra el recorte disponible.
+- `src/views/SocialView.tsx`: indicadores sociales responden al alcance global mediante promedio ponderado cuando se seleccionan ambos departamentos.
+- `src/views/ProjectionsView.tsx`: se reconstruyo la vista para mostrar serie integrada historica/actual/proyectada, comparativa de escenarios y marcas verticales de hitos PARACEL.
+- `src/views/ImpactoView.tsx`: el escenario y horizonte global alimentan el modelo; se agrego serie observado vs esperado y se filtra el ranking distrital.
+- `src/views/ReporteView.tsx`: el PDF imprimible usa el alcance, escenario demografico, escenario de impacto y horizonte seleccionados globalmente.
+- `src/index.css`: estilos del filtro global, ajuste de offsets del mapa/vistas/sidebar/loading y soporte responsive horizontal.
+
+### Verificacion local
+
+- `npm run check`: exitoso.
+- `npm run typecheck`: exitoso dentro del check.
+- `npm run build`: exitoso dentro del check.
+- Vista previa local: `http://127.0.0.1:4175/concepcion_amambay_geodemogsocial/` responde `HTTP 200`.
+- Bundle local verificado con cadenas clave:
+  - `Filtros globales`.
+  - `Serie PARACEL`.
+  - `Serie integrada`.
+  - `Actual 2022`.
+  - `Operacion plena estimada`.
+
+### Pendiente operativo
+
+- Commit y push desde el clon limpio.
+- Sincronizar archivos modificados al repositorio operativo de Drive.
+- Verificar workflow de GitHub Pages y app publicada.
+
 ## 2026-05-18 - Cierre de publicacion Impacto PARACEL v2 y Reporte PDF
 
 ### Commit y push

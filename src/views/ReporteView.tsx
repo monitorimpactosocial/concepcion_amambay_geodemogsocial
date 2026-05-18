@@ -1,6 +1,6 @@
 import {
   Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer,
-  Tooltip, XAxis, YAxis,
+  ReferenceLine, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import type { ReactNode } from 'react';
 import {
@@ -11,6 +11,15 @@ import { CENSUS, type DeptKey } from '../data/census2022';
 import { SOCIAL_INDICATORS, SERIES_HISTORICAS } from '../data/socialIndicators';
 import { getProjection } from '../data/projectionEngine';
 import { computeImpacto, ESCENARIOS_PRESET } from '../data/impactoEngine';
+import type { GlobalFilters } from '../types';
+import {
+  PARACEL_MILESTONES,
+  aggregateCensus,
+  aggregateProjection,
+  clampHorizonYear,
+  deptKeysFromFilters,
+  scopeLabel,
+} from '../utils/analysis';
 import {
   CONTEXT_INDICATORS_2025_2026,
   CONTEXT_PRIORITY_CODES,
@@ -20,8 +29,6 @@ import {
 const fmt = (n: number) => Math.round(n).toLocaleString('es-PY');
 const pct = (n: number, digits = 1) => `${n.toFixed(digits)}%`;
 const mm = (n: number) => `${(n / 1_000_000_000).toLocaleString('es-PY', { maximumFractionDigits: 1 })} MM Gs.`;
-
-const deptKeys: DeptKey[] = ['concepcion', 'amambay'];
 
 function socialKey(dept: DeptKey) {
   return dept === 'concepcion' ? 'concepcion_total' : 'amambay_total';
@@ -67,28 +74,30 @@ const contextRows = CONTEXT_PRIORITY_CODES
     item.source,
   ]);
 
-export default function ReporteView() {
-  const impacto = computeImpacto(ESCENARIOS_PRESET.medio);
-  const projectionCon = getProjection('concepcion', 'medio');
-  const projectionAma = getProjection('amambay', 'medio');
-  const basePob = CENSUS.concepcion.poblacion_total + CENSUS.amambay.poblacion_total;
-  const pob2052 = getYear(projectionCon, 2052).pobTotal + getYear(projectionAma, 2052).pobTotal;
-  const ruralPct = (
-    (CENSUS.concepcion.pob_rural + CENSUS.amambay.pob_rural) / basePob
-  ) * 100;
-  const indigenaPct = (
-    (CENSUS.concepcion.pob_indigena + CENSUS.amambay.pob_indigena) / basePob
-  ) * 100;
-  const pobrezaPond = (
-    SOCIAL_INDICATORS.concepcion_total.pobreza.incidencia_pobreza_pct * CENSUS.concepcion.poblacion_total +
-    SOCIAL_INDICATORS.amambay_total.pobreza.incidencia_pobreza_pct * CENSUS.amambay.poblacion_total
-  ) / basePob;
+export default function ReporteView({ filters }: { filters: GlobalFilters }) {
+  const deptKeys = deptKeysFromFilters(filters);
+  const viewScope = scopeLabel(filters);
+  const horizonYear = clampHorizonYear(filters.horizonYear);
+  const impactoParams = ESCENARIOS_PRESET[filters.impactScenario];
+  const impacto = computeImpacto(impactoParams);
+  const projectionCon = getProjection('concepcion', filters.projectionScenario);
+  const projectionAma = getProjection('amambay', filters.projectionScenario);
+  const projectionScope = aggregateProjection(deptKeys, filters.projectionScenario);
+  const censusScope = aggregateCensus(deptKeys);
+  const basePob = censusScope.poblacion_total;
+  const pob2052 = getYear(projectionScope, 2052).pobTotal;
+  const ruralPct = (censusScope.pob_rural / Math.max(1, basePob)) * 100;
+  const indigenaPct = (censusScope.pob_indigena / Math.max(1, basePob)) * 100;
+  const pobrezaPond = deptKeys.reduce((sum, dept) => (
+    sum + SOCIAL_INDICATORS[socialKey(dept)].pobreza.incidencia_pobreza_pct * CENSUS[dept].poblacion_total
+  ), 0) / Math.max(1, basePob);
 
-  const projectionData = [2022, 2032, 2042, 2052].map((anio) => ({
+  const projectionYears = Array.from(new Set([2022, horizonYear, 2032, 2042, 2052])).sort((a, b) => a - b);
+  const projectionData = projectionYears.map((anio) => ({
     anio,
-    concepcion: getYear(projectionCon, anio).pobTotal,
-    amambay: getYear(projectionAma, anio).pobTotal,
-    total: getYear(projectionCon, anio).pobTotal + getYear(projectionAma, anio).pobTotal,
+    concepcion: deptKeys.includes('concepcion') ? getYear(projectionCon, anio).pobTotal : null,
+    amambay: deptKeys.includes('amambay') ? getYear(projectionAma, anio).pobTotal : null,
+    total: getYear(projectionScope, anio).pobTotal,
   }));
 
   const phaseData = [
@@ -97,7 +106,7 @@ export default function ReporteView() {
       fase: 'Durante obra',
       empleo: 7200,
       residentes: Math.round(impacto.pobInducidaTotal * 0.48),
-      ingreso: Math.round((ESCENARIOS_PRESET.medio.empleoDirectoObra * ESCENARIOS_PRESET.medio.salarioMensualGs * 12 * 0.55 * 0.72) / 1_000_000_000),
+      ingreso: Math.round((impactoParams.empleoDirectoObra * impactoParams.salarioMensualGs * 12 * 0.55 * 0.72) / 1_000_000_000),
     },
     {
       fase: 'Operación',
@@ -109,11 +118,17 @@ export default function ReporteView() {
 
   const tendenciaPobreza = SERIES_HISTORICAS.pobreza.map((row) => ({
     anio: row.anio,
-    concepcion: row.concepcion,
-    amambay: row.amambay,
+    concepcion: deptKeys.includes('concepcion') ? row.concepcion : null,
+    amambay: deptKeys.includes('amambay') ? row.amambay : null,
   }));
 
   const topDistritos = impacto.distritos
+    .filter((d) => {
+      if (filters.selectedDistrictName) return d.nombre === filters.selectedDistrictName;
+      if (filters.activeDepartment === '01') return d.departamento === 'Concepcion' || d.departamento === 'Concepción';
+      if (filters.activeDepartment === '13') return d.departamento === 'Amambay';
+      return true;
+    })
     .slice()
     .sort((a, b) => (
       b.presionViviendaIndice + b.presionServiciosIndice + b.empleosLocalesEstimados / 40
@@ -137,18 +152,21 @@ export default function ReporteView() {
     ];
   });
 
-  const projectionRows = [2032, 2042, 2052].flatMap((anio) => ([
-    ['Concepción', anio, fmt(getYear(projectionCon, anio).pobTotal), pct(getYear(projectionCon, anio).razDependencia), getYear(projectionCon, anio).tgf.toFixed(2)],
-    ['Amambay', anio, fmt(getYear(projectionAma, anio).pobTotal), pct(getYear(projectionAma, anio).razDependencia), getYear(projectionAma, anio).tgf.toFixed(2)],
-  ]));
+  const projectionRows = projectionYears
+    .filter((anio) => anio !== 2022)
+    .flatMap((anio) => deptKeys.map((dept) => {
+      const projection = dept === 'concepcion' ? projectionCon : projectionAma;
+      const row = getYear(projection, anio);
+      return [CENSUS[dept].nombre, anio, fmt(row.pobTotal), pct(row.razDependencia), row.tgf.toFixed(2)];
+    }));
 
   return (
     <div className="view-container impacto-report report-page">
       <div className="impacto-hero print-section">
         <div>
           <p className="eyebrow">Reporte imprimible / PDF</p>
-          <h2 className="view-title">Situación socioeconómica e impacto PARACEL</h2>
-          <p className="view-subtitle">Concepción y Amambay: lectura histórica, actual y proyectada con escenario medio de impacto territorial.</p>
+          <h2 className="view-title">Situacion socioeconomica e impacto PARACEL · {viewScope}</h2>
+          <p className="view-subtitle">Lectura historica, actual y proyectada con escenario demografico {filters.projectionScenario}, impacto {filters.impactScenario} y horizonte {horizonYear}.</p>
         </div>
         <button className="secondary-button print-hide" type="button" onClick={() => window.print()}>
           <Printer size={16} /> Imprimir / PDF
@@ -156,7 +174,7 @@ export default function ReporteView() {
       </div>
 
       <div className="kpi-grid-4 print-section">
-        <KPICard label="Población base" value={fmt(basePob)} sub="Censo 2022, ambos departamentos" color="var(--emerald-700)" icon={<Users size={18} />} />
+        <KPICard label="Poblacion base" value={fmt(basePob)} sub={`Censo 2022, ${viewScope}`} color="var(--emerald-700)" icon={<Users size={18} />} />
         <KPICard label="Población 2052" value={fmt(pob2052)} sub={`${pob2052 >= basePob ? '+' : ''}${pct(((pob2052 - basePob) / basePob) * 100)} vs 2022`} color="var(--blue-600)" icon={<TrendingUp size={18} />} />
         <KPICard label="Pobreza actual" value={pct(pobrezaPond)} sub="promedio ponderado EPH/INE" color="var(--red-600)" icon={<HeartPulse size={18} />} />
         <KPICard label="Empleo total PARACEL" value={fmt(impacto.empleoTotal)} sub="directo + indirecto + inducido" color="var(--amber-600)" icon={<Briefcase size={18} />} />
@@ -241,6 +259,7 @@ export default function ReporteView() {
               <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
               <Tooltip formatter={(v: number, name: string) => [pct(v), name === 'concepcion' ? 'Concepción' : 'Amambay']} />
               <Legend formatter={(v: string) => v === 'concepcion' ? 'Concepción' : 'Amambay'} />
+              <ReferenceLine x={2022} stroke="#111827" strokeDasharray="4 4" label={{ value: 'Actual 2022', fontSize: 10, fill: '#111827' }} />
               <Line type="monotone" dataKey="concepcion" stroke="#dc2626" strokeWidth={2} dot />
               <Line type="monotone" dataKey="amambay" stroke="#f59e0b" strokeWidth={2} dot />
             </LineChart>
@@ -256,6 +275,9 @@ export default function ReporteView() {
               <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} tick={{ fontSize: 11 }} />
               <Tooltip formatter={(v: number, name: string) => [fmt(v), name === 'concepcion' ? 'Concepción' : name === 'amambay' ? 'Amambay' : 'Total']} />
               <Legend formatter={(v: string) => v === 'concepcion' ? 'Concepción' : v === 'amambay' ? 'Amambay' : 'Total'} />
+              {PARACEL_MILESTONES.map((milestone) => (
+                <ReferenceLine key={milestone.anio} x={milestone.anio} stroke="#111827" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: milestone.label, angle: -90, position: 'insideTop', fontSize: 10, fill: '#111827' }} />
+              ))}
               <Line type="monotone" dataKey="concepcion" stroke="#2563eb" strokeWidth={2} dot />
               <Line type="monotone" dataKey="amambay" stroke="#059669" strokeWidth={2} dot />
               <Line type="monotone" dataKey="total" stroke="#111827" strokeWidth={2.5} dot />

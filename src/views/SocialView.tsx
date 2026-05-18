@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
@@ -6,9 +6,15 @@ import {
 } from 'recharts';
 import { HeartPulse, GraduationCap, Briefcase, Coins, Home, Users } from 'lucide-react';
 import KPICard from '../components/charts/KPICard';
-import { SOCIAL_INDICATORS, SERIES_HISTORICAS } from '../data/socialIndicators';
+import {
+  SOCIAL_INDICATORS,
+  SERIES_HISTORICAS,
+  type DeptSocialIndicators,
+} from '../data/socialIndicators';
 import type { DeptKey } from '../data/census2022';
 import { CENSUS } from '../data/census2022';
+import type { GlobalFilters } from '../types';
+import { deptKeysFromFilters, scopeLabel } from '../utils/analysis';
 
 type PoblacionKey = 'total' | 'indigena';
 
@@ -25,13 +31,75 @@ const TABS = [
 
 type TabId = typeof TABS[number]['id'];
 
-export default function SocialView() {
-  const [dept, setDept] = useState<DeptKey>('concepcion');
+type SocialTotalKey = 'concepcion_total' | 'amambay_total';
+
+function socialKey(dept: DeptKey): SocialTotalKey {
+  return dept === 'concepcion' ? 'concepcion_total' : 'amambay_total';
+}
+
+function weightedTotal(keys: DeptKey[], getter: (row: DeptSocialIndicators) => number): number {
+  const total = keys.reduce((sum, key) => sum + CENSUS[key].poblacion_total, 0);
+  return keys.reduce((sum, key) => (
+    sum + getter(SOCIAL_INDICATORS[socialKey(key)]) * CENSUS[key].poblacion_total
+  ), 0) / Math.max(1, total);
+}
+
+function aggregateSocial(keys: DeptKey[]): DeptSocialIndicators {
+  if (keys.length === 1) return SOCIAL_INDICATORS[socialKey(keys[0])];
+
+  return {
+    poblacion: 'total',
+    anio_referencia: 2022,
+    fuente: 'INE/EPH 2022, promedio ponderado Concepcion + Amambay',
+    salud: {
+      sinSeguroMedico_pct: weightedTotal(keys, (row) => row.salud.sinSeguroMedico_pct),
+      conIPS_pct: weightedTotal(keys, (row) => row.salud.conIPS_pct),
+      conOtroSeguro_pct: weightedTotal(keys, (row) => row.salud.conOtroSeguro_pct),
+      consultaMedica_pct: weightedTotal(keys, (row) => row.salud.consultaMedica_pct),
+      usf_presencia_pct: weightedTotal(keys, (row) => row.salud.usf_presencia_pct),
+    },
+    educacion: {
+      analfabetismo_pct: weightedTotal(keys, (row) => row.educacion.analfabetismo_pct),
+      analfabetismo_hombres_pct: weightedTotal(keys, (row) => row.educacion.analfabetismo_hombres_pct),
+      analfabetismo_mujeres_pct: weightedTotal(keys, (row) => row.educacion.analfabetismo_mujeres_pct),
+      asistencia_6_17_pct: weightedTotal(keys, (row) => row.educacion.asistencia_6_17_pct),
+      promedio_anios_estudio: weightedTotal(keys, (row) => row.educacion.promedio_anios_estudio),
+    },
+    empleo: {
+      tasa_actividad_pct: weightedTotal(keys, (row) => row.empleo.tasa_actividad_pct),
+      tasa_actividad_hombres_pct: weightedTotal(keys, (row) => row.empleo.tasa_actividad_hombres_pct),
+      tasa_actividad_mujeres_pct: weightedTotal(keys, (row) => row.empleo.tasa_actividad_mujeres_pct),
+      tasa_ocupacion_pct: weightedTotal(keys, (row) => row.empleo.tasa_ocupacion_pct),
+      sector_primario_pct: weightedTotal(keys, (row) => row.empleo.sector_primario_pct),
+    },
+    pobreza: {
+      incidencia_pobreza_pct: weightedTotal(keys, (row) => row.pobreza.incidencia_pobreza_pct),
+      incidencia_pobreza_extrema_pct: weightedTotal(keys, (row) => row.pobreza.incidencia_pobreza_extrema_pct),
+      brecha_pobreza: weightedTotal(keys, (row) => row.pobreza.brecha_pobreza),
+      severidad_pobreza: weightedTotal(keys, (row) => row.pobreza.severidad_pobreza),
+    },
+    genero: {
+      jefatura_femenina_pct: weightedTotal(keys, (row) => row.genero.jefatura_femenina_pct),
+      tgf: weightedTotal(keys, (row) => row.genero.tgf),
+      mujeres_sin_hijos_12a49_pct: weightedTotal(keys, (row) => row.genero.mujeres_sin_hijos_12a49_pct),
+    },
+    vivienda: {
+      sin_agua_potable_pct: weightedTotal(keys, (row) => row.vivienda.sin_agua_potable_pct),
+      sin_electricidad_pct: weightedTotal(keys, (row) => row.vivienda.sin_electricidad_pct),
+      sin_saneamiento_pct: weightedTotal(keys, (row) => row.vivienda.sin_saneamiento_pct),
+      hacinamiento_pct: weightedTotal(keys, (row) => row.vivienda.hacinamiento_pct),
+    },
+  };
+}
+
+export default function SocialView({ filters }: { filters: GlobalFilters }) {
   const [tab, setTab] = useState<TabId>('salud');
   const [poblacion, setPoblacion] = useState<PoblacionKey>('total');
+  const deptKeys = useMemo(() => deptKeysFromFilters(filters), [filters]);
+  const viewScope = scopeLabel(filters);
 
   const ind = poblacion === 'total'
-    ? SOCIAL_INDICATORS[`${dept}_total` as 'concepcion_total' | 'amambay_total']
+    ? aggregateSocial(deptKeys)
     : SOCIAL_INDICATORS.indigenas_nacional;
 
   const indComparativo = {
@@ -54,13 +122,12 @@ export default function SocialView() {
   return (
     <div className="view-container">
       {/* Selectores */}
+      <div className="filter-scope-note">
+        Filtro aplicado: <strong>{viewScope}</strong>
+        {filters.selectedDistrictName && <span> | indicadores sociales usados como proxy departamental</span>}
+      </div>
+
       <div className="dept-selector">
-        {(['concepcion', 'amambay'] as DeptKey[]).map(k => (
-          <button key={k} className={`dept-btn${dept === k ? ' active' : ''}`} onClick={() => setDept(k)}>
-            {CENSUS[k].nombre}
-          </button>
-        ))}
-        <div className="selector-sep" />
         {(['total', 'indigena'] as PoblacionKey[]).map(p => (
           <button key={p} className={`dept-btn${poblacion === p ? ' active' : ''}`} onClick={() => setPoblacion(p)}>
             {p === 'total' ? 'Población total' : 'Población indígena'}
@@ -69,7 +136,7 @@ export default function SocialView() {
       </div>
 
       <h2 className="view-title">
-        Indicadores Sociales · {CENSUS[dept].nombre}
+        Indicadores Sociales · {viewScope}
         <span className="view-subtitle"> — {ind.fuente}</span>
       </h2>
 

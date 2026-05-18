@@ -121,10 +121,142 @@ body {
 .navbar-export-btn:hover { background: var(--emerald-700); }
 .navbar-export-btn:disabled { opacity: 0.65; cursor: not-allowed; }
 
+.global-filter-bar {
+  position: fixed;
+  top: 52px;
+  left: 0;
+  right: 0;
+  z-index: 1090;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 18px;
+  overflow-x: auto;
+  background: rgba(248, 250, 252, 0.97);
+  border-bottom: 1px solid var(--border-strong);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
+  scrollbar-width: thin;
+}
+
+.global-filter-title,
+.global-filter-field,
+.global-reset {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.global-filter-title {
+  gap: 8px;
+  color: var(--emerald-700);
+  font-weight: 800;
+  font-size: 0.84rem;
+}
+
+.global-filter-group.segmented {
+  height: 38px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.global-filter-group.segmented button,
+.global-reset {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.global-filter-group.segmented button {
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.global-filter-group.segmented button.active {
+  background: var(--emerald-700);
+  color: #fff;
+}
+
+.global-filter-field {
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-secondary);
+}
+
+.global-filter-field select,
+.global-filter-field input {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  outline: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.global-filter-field select {
+  max-width: 240px;
+}
+
+.global-filter-field.compact select {
+  max-width: 130px;
+}
+
+.global-filter-field.year-field {
+  min-width: 210px;
+}
+
+.global-filter-field.year-field input {
+  width: 110px;
+}
+
+.global-filter-field.year-field strong {
+  color: var(--emerald-700);
+  font-size: 0.86rem;
+}
+
+.global-reset {
+  width: 38px;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+}
+
+.filter-scope-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.35;
+  box-shadow: var(--shadow-card);
+}
+
+.filter-scope-note strong {
+  color: var(--emerald-700);
+}
+
 /* ── VISTAS ANALÍTICAS ────────────────────────────────────── */
 .view-main {
   position: fixed;
-  top: 52px; left: 0; right: 0; bottom: 0;
+  top: 112px; left: 0; right: 0; bottom: 0;
   overflow-y: auto;
   background: var(--bg-app);
   padding: 0;
@@ -341,7 +473,7 @@ button {
   display: flex;
   min-height: 100vh;
   width: 100vw;
-  padding-top: 52px;
+  padding-top: 112px;
   background:
     radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 28%),
     radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.08), transparent 26%),
@@ -356,7 +488,7 @@ button {
 
 .sidebar-toggle {
   position: fixed;
-  top: 64px;
+  top: 124px;
   left: 18px;
   z-index: 1200;
   width: 42px;
@@ -376,7 +508,7 @@ button {
   z-index: 1100;
   width: 430px;
   max-width: calc(100vw - 20px);
-  height: calc(100vh - 52px);
+  height: calc(100vh - 112px);
   padding: 22px 18px 24px 18px;
   background: var(--bg-panel);
   backdrop-filter: blur(18px);
@@ -868,7 +1000,7 @@ button {
 
 .loading-screen {
   position: fixed;
-  inset: 52px 0 0 0;
+  inset: 112px 0 0 0;
   z-index: 2000;
   display: flex;
   flex-direction: column;
@@ -911,8 +1043,9 @@ button {
 @media (max-width: 1180px) {
   .sidebar-panel {
     position: fixed;
-    inset: 0 auto 0 0;
+    inset: 112px auto 0 0;
     width: min(430px, calc(100vw - 18px));
+    height: calc(100vh - 112px);
   }
 
   .map-overlay.top-left {
@@ -936,7 +1069,7 @@ button {
   }
 
   .sidebar-toggle {
-    top: 14px;
+    top: 124px;
     left: 14px;
   }
 

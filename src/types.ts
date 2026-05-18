@@ -12,6 +12,8 @@ export type ViewId =
 export type DepartmentCode = '01' | '13' | null;
 export type BasemapKey = 'light' | 'dark' | 'satellite';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
+export type ProjectionScenarioKey = 'optimista' | 'medio' | 'pesimista';
+export type ImpactScenarioKey = 'conservador' | 'medio' | 'transformador';
 
 export type LayerId =
   | 'routes'
@@ -53,6 +55,16 @@ export interface DistrictOption {
   totalValue: number;
   lat: number | null;
   lng: number | null;
+}
+
+export interface GlobalFilters {
+  activeDepartment: DepartmentCode;
+  selectedDistrictKey: string | null;
+  selectedDistrictName: string | null;
+  selectedDepartmentName: string | null;
+  projectionScenario: ProjectionScenarioKey;
+  impactScenario: ImpactScenarioKey;
+  horizonYear: number;
 }
 
 export interface LayerHealthItem {

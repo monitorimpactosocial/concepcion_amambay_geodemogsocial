@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   CartesianGrid, ResponsiveContainer, Legend, ReferenceLine,
@@ -25,6 +25,14 @@ import KPICard from '../components/charts/KPICard';
 import { CENSUS } from '../data/census2022';
 import { SOCIAL_INDICATORS } from '../data/socialIndicators';
 import { CONTEXT_SIGNAL_INDEX } from '../data/contexto2025';
+import type { GlobalFilters } from '../types';
+import {
+  PARACEL_MILESTONES,
+  aggregateCensus,
+  clampHorizonYear,
+  deptKeysFromFilters,
+  scopeLabel,
+} from '../utils/analysis';
 import {
   computeImpacto,
   ESCENARIOS_PRESET,
@@ -131,31 +139,18 @@ function FactCard({
 }
 
 const totalPoblacionBase = CENSUS.concepcion.poblacion_total + CENSUS.amambay.poblacion_total;
-const totalPobIndigena = CENSUS.concepcion.pob_indigena + CENSUS.amambay.pob_indigena;
-const totalRural = CENSUS.concepcion.pob_rural + CENSUS.amambay.pob_rural;
 const hogaresBaseEstimados = Math.round(totalPoblacionBase / 3.5);
 
-function weightedSocial(
+function weightedSocialForKeys(
+  keys: Array<'concepcion' | 'amambay'>,
   getter: (k: 'concepcion_total' | 'amambay_total') => number,
 ): number {
-  const con = SOCIAL_INDICATORS.concepcion_total;
-  const ama = SOCIAL_INDICATORS.amambay_total;
-  return (
-    getter('concepcion_total') * CENSUS.concepcion.poblacion_total +
-    getter('amambay_total') * CENSUS.amambay.poblacion_total
-  ) / (CENSUS.concepcion.poblacion_total + CENSUS.amambay.poblacion_total) ||
-    (con.pobreza.incidencia_pobreza_pct + ama.pobreza.incidencia_pobreza_pct) / 2;
+  const total = keys.reduce((sum, key) => sum + CENSUS[key].poblacion_total, 0);
+  return keys.reduce((sum, key) => {
+    const socialKey = key === 'concepcion' ? 'concepcion_total' : 'amambay_total';
+    return sum + getter(socialKey) * CENSUS[key].poblacion_total;
+  }, 0) / Math.max(1, total);
 }
-
-const baseline = {
-  poblacion: totalPoblacionBase,
-  ruralPct: (totalRural / totalPoblacionBase) * 100,
-  indigenaPct: (totalPobIndigena / totalPoblacionBase) * 100,
-  pobrezaPct: weightedSocial((k) => SOCIAL_INDICATORS[k].pobreza.incidencia_pobreza_pct),
-  sinSeguroPct: weightedSocial((k) => SOCIAL_INDICATORS[k].salud.sinSeguroMedico_pct),
-  sinAguaPct: weightedSocial((k) => SOCIAL_INDICATORS[k].vivienda.sin_agua_potable_pct),
-  actividadPct: weightedSocial((k) => SOCIAL_INDICATORS[k].empleo.tasa_actividad_pct),
-};
 
 function districtPopulation(nombre: string): number {
   for (const dept of Object.values(CENSUS)) {
@@ -173,14 +168,22 @@ function districtRuralPct(nombre: string): number {
   return 0;
 }
 
-export default function ImpactoView() {
+export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
   const [escenario, setEscenario] = useState<EscenarioKey>('medio');
   const [params, setParams] = useState<ImpactoParams>({ ...ESCENARIOS_PRESET.medio });
+  const deptKeys = useMemo(() => deptKeysFromFilters(filters), [filters]);
+  const viewScope = scopeLabel(filters);
+  const horizonYear = clampHorizonYear(filters.horizonYear);
 
   const setEscenarioPreset = (k: EscenarioKey) => {
     setEscenario(k);
     setParams({ ...ESCENARIOS_PRESET[k] });
   };
+
+  useEffect(() => {
+    setEscenario(filters.impactScenario);
+    setParams({ ...ESCENARIOS_PRESET[filters.impactScenario] });
+  }, [filters.impactScenario]);
 
   const setParam = <K extends keyof ImpactoParams>(key: K, value: ImpactoParams[K]) => {
     setEscenario('medio');
@@ -188,6 +191,28 @@ export default function ImpactoView() {
   };
 
   const result = useMemo(() => computeImpacto(params), [params]);
+  const baselineView = useMemo(() => {
+    const censusScope = aggregateCensus(deptKeys);
+    const selectedDistrict = filters.selectedDistrictName
+      ? censusScope.distritos.find((district) => district.nombre === filters.selectedDistrictName)
+      : null;
+    const poblacion = selectedDistrict?.poblacion ?? censusScope.poblacion_total;
+    const ruralPct = selectedDistrict
+      ? selectedDistrict.pob_rural_pct
+      : (censusScope.pob_rural / Math.max(1, censusScope.poblacion_total)) * 100;
+    const indigenaPct = selectedDistrict
+      ? (selectedDistrict.pob_indigena / Math.max(1, selectedDistrict.poblacion)) * 100
+      : (censusScope.pob_indigena / Math.max(1, censusScope.poblacion_total)) * 100;
+
+    return {
+      poblacion,
+      ruralPct,
+      indigenaPct,
+      pobrezaPct: weightedSocialForKeys(deptKeys, (k) => SOCIAL_INDICATORS[k].pobreza.incidencia_pobreza_pct),
+      sinSeguroPct: weightedSocialForKeys(deptKeys, (k) => SOCIAL_INDICATORS[k].salud.sinSeguroMedico_pct),
+      sinAguaPct: weightedSocialForKeys(deptKeys, (k) => SOCIAL_INDICATORS[k].vivienda.sin_agua_potable_pct),
+    };
+  }, [deptKeys, filters.selectedDistrictName]);
 
   const faseData = useMemo(() => {
     const obraTotal = Math.max(
@@ -246,7 +271,8 @@ export default function ImpactoView() {
 
   const evolutionData = useMemo(() => {
     const rows: { anio: number; empTotal: number; empDir: number; ingresoMM: number; residentes: number }[] = [];
-    for (let yr = params.anioInicioObra - 1; yr <= result.anioOperacionPlena + 5; yr++) {
+    const finalYear = Math.max(result.anioOperacionPlena + 5, horizonYear);
+    for (let yr = params.anioInicioObra - 1; yr <= finalYear; yr++) {
       const fase = yr < params.anioInicioObra
         ? faseData[0]
         : yr <= result.anioFinObra
@@ -270,7 +296,49 @@ export default function ImpactoView() {
       });
     }
     return rows;
-  }, [faseData, params, result]);
+  }, [faseData, horizonYear, params, result]);
+
+  const impactTimeline = useMemo(() => {
+    const byYear = new Map<number, {
+      anio: number;
+      empleoObservado: number | null;
+      empleoEsperado: number | null;
+      ingresoEsperadoMM: number | null;
+      residentesEsperados: number | null;
+    }>();
+
+    [
+      { anio: 2022, empleoObservado: 0 },
+      { anio: 2025, empleoObservado: PARACEL_FACTS.empleosDirectosActuales },
+      { anio: 2026, empleoObservado: PARACEL_FACTS.empleosObraTotalRef },
+    ].forEach((row) => {
+      byYear.set(row.anio, {
+        anio: row.anio,
+        empleoObservado: row.empleoObservado,
+        empleoEsperado: null,
+        ingresoEsperadoMM: null,
+        residentesEsperados: null,
+      });
+    });
+
+    evolutionData.forEach((row) => {
+      const current = byYear.get(row.anio) ?? {
+        anio: row.anio,
+        empleoObservado: null,
+        empleoEsperado: null,
+        ingresoEsperadoMM: null,
+        residentesEsperados: null,
+      };
+      byYear.set(row.anio, {
+        ...current,
+        empleoEsperado: row.empTotal,
+        ingresoEsperadoMM: row.ingresoMM,
+        residentesEsperados: row.residentes,
+      });
+    });
+
+    return Array.from(byYear.values()).sort((a, b) => a.anio - b.anio);
+  }, [evolutionData]);
 
   const radarData = useMemo(() => [
     {
@@ -386,6 +454,13 @@ export default function ImpactoView() {
     })
     .sort((a, b) => b.score - a.score), [params.capturaLocal_pct, result]);
 
+  const filteredDistrictIntelligence = useMemo(() => districtIntelligence.filter((district) => {
+    if (filters.selectedDistrictName) return district.nombre === filters.selectedDistrictName;
+    if (filters.activeDepartment === '01') return district.departamento === 'Concepcion' || district.departamento === 'Concepción';
+    if (filters.activeDepartment === '13') return district.departamento === 'Amambay';
+    return true;
+  }), [districtIntelligence, filters.activeDepartment, filters.selectedDistrictName]);
+
   const resumenKpis = useMemo(() => {
     const empleoVsRef = (result.empleoTotal / PARACEL_FACTS.empleosDirectosIndirectosRef) * 100;
     const produccionPorEmpleo = PARACEL_FACTS.produccionAnualTon / Math.max(1, result.empleoTotal);
@@ -407,9 +482,10 @@ export default function ImpactoView() {
         <div>
           <p className="eyebrow">Modelo territorial antes / durante / después</p>
           <h2 className="view-title">
-            Impacto territorial PARACEL
+            Impacto territorial PARACEL · {viewScope}
             <span className="view-subtitle"> - Escenario {ESCENARIO_LABELS[escenario].label}: {ESCENARIO_LABELS[escenario].desc}</span>
           </h2>
+          <p className="view-subtitle">Horizonte global {horizonYear}. Las lineas separan presencia observada de efectos esperados.</p>
         </div>
         <button className="secondary-button print-hide" type="button" onClick={() => window.print()}>
           <Printer size={16} /> Imprimir / PDF
@@ -493,12 +569,12 @@ export default function ImpactoView() {
 
         <div className="results-panel">
           <div className="baseline-strip print-section">
-            <KPICard label="Poblacion base" value={FMT_N(baseline.poblacion)} sub="Concepcion + Amambay, Censo 2022" color="var(--emerald-600)" icon={<Users size={18} />} />
-            <KPICard label="Ruralidad regional" value={FMT_PCT(baseline.ruralPct)} sub="presión sobre conectividad y servicios" color="var(--blue-600)" icon={<Truck size={18} />} />
-            <KPICard label="Poblacion indigena" value={FMT_PCT(baseline.indigenaPct)} sub={`${FMT_N(totalPobIndigena)} personas`} color="var(--amber-600)" icon={<Trees size={18} />} />
-            <KPICard label="Pobreza estimada" value={FMT_PCT(baseline.pobrezaPct)} sub="promedio ponderado departamental" color="var(--red-600)" icon={<AlertTriangle size={18} />} />
-            <KPICard label="Sin seguro médico" value={FMT_PCT(baseline.sinSeguroPct)} sub="riesgo de presión sanitaria" color="var(--violet-600)" icon={<ShieldCheck size={18} />} />
-            <KPICard label="Sin agua potable" value={FMT_PCT(baseline.sinAguaPct)} sub="brecha de servicios basicos" color="var(--cyan-600)" icon={<Home size={18} />} />
+            <KPICard label="Poblacion base" value={FMT_N(baselineView.poblacion)} sub={`${viewScope}, Censo 2022`} color="var(--emerald-600)" icon={<Users size={18} />} />
+            <KPICard label="Ruralidad" value={FMT_PCT(baselineView.ruralPct)} sub="presion sobre conectividad y servicios" color="var(--blue-600)" icon={<Truck size={18} />} />
+            <KPICard label="Poblacion indigena" value={FMT_PCT(baselineView.indigenaPct)} sub="peso relativo en el filtro actual" color="var(--amber-600)" icon={<Trees size={18} />} />
+            <KPICard label="Pobreza estimada" value={FMT_PCT(baselineView.pobrezaPct)} sub="promedio ponderado departamental" color="var(--red-600)" icon={<AlertTriangle size={18} />} />
+            <KPICard label="Sin seguro medico" value={FMT_PCT(baselineView.sinSeguroPct)} sub="riesgo de presion sanitaria" color="var(--violet-600)" icon={<ShieldCheck size={18} />} />
+            <KPICard label="Sin agua potable" value={FMT_PCT(baselineView.sinAguaPct)} sub="brecha de servicios basicos" color="var(--cyan-600)" icon={<Home size={18} />} />
           </div>
 
           <div className="chart-card print-section">
@@ -573,6 +649,44 @@ export default function ImpactoView() {
               color="var(--red-600)" />
           </div>
 
+          <div className="chart-card print-section">
+            <h4 className="chart-title">Serie PARACEL: observado reciente vs impacto esperado</h4>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={impactTimeline} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                <XAxis dataKey="anio" tick={{ fontSize: 10 }} />
+                <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(v: number, name: string) => [
+                  FMT_N(v),
+                  name === 'empleoObservado'
+                    ? 'Empleo observado/reportado'
+                    : name === 'empleoEsperado'
+                      ? 'Empleo esperado'
+                      : name === 'residentesEsperados'
+                        ? 'Residentes esperados'
+                        : 'Ingreso esperado MM Gs.',
+                ]} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                {PARACEL_MILESTONES.map((milestone) => (
+                  <ReferenceLine
+                    key={milestone.anio}
+                    yAxisId="left"
+                    x={milestone.anio}
+                    stroke="#111827"
+                    strokeDasharray="4 4"
+                    strokeOpacity={0.45}
+                    label={{ value: milestone.label, angle: -90, position: 'insideTop', fontSize: 10, fill: '#111827' }}
+                  />
+                ))}
+                <Line yAxisId="left" type="monotone" dataKey="empleoObservado" name="Empleo observado" stroke="#111827" strokeWidth={2.4} connectNulls dot={{ r: 4 }} />
+                <Line yAxisId="left" type="monotone" dataKey="empleoEsperado" name="Empleo esperado" stroke="#059669" strokeWidth={2.4} connectNulls dot={false} />
+                <Line yAxisId="left" type="monotone" dataKey="residentesEsperados" name="Residentes esperados" stroke="#7c3aed" strokeWidth={2} connectNulls dot={false} />
+                <Line yAxisId="right" type="monotone" dataKey="ingresoEsperadoMM" name="Ingreso esperado MM Gs." stroke="#d97706" strokeWidth={2} connectNulls dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
           <div className="charts-grid-2 print-section">
             <div className="chart-card">
               <h4 className="chart-title">Antes, durante y después: empleo, residentes e ingreso</h4>
@@ -620,6 +734,9 @@ export default function ImpactoView() {
                   <Tooltip formatter={(v: number, name: string) => [FMT_N(v), name]} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <ReferenceLine yAxisId="left" x={result.anioFinObra} stroke="#059669" strokeDasharray="4 3" />
+                  {PARACEL_MILESTONES.map((milestone) => (
+                    <ReferenceLine key={milestone.anio} yAxisId="left" x={milestone.anio} stroke="#111827" strokeDasharray="4 4" strokeOpacity={0.28} />
+                  ))}
                   <Line yAxisId="left" type="monotone" dataKey="empTotal" name="Empleo total" stroke="#059669" strokeWidth={2.4} dot={false} />
                   <Line yAxisId="right" type="monotone" dataKey="ingresoMM" name="Ingreso local MM Gs." stroke="#d97706" strokeWidth={2.2} dot={false} />
                 </LineChart>
@@ -672,7 +789,7 @@ export default function ImpactoView() {
           </div>
 
           <div className="chart-card print-section">
-            <h4 className="chart-title">Ranking distrital inteligente: oportunidad + presión</h4>
+            <h4 className="chart-title">Ranking distrital inteligente: oportunidad + presion · {viewScope}</h4>
             <div className="impact-table-wrap">
               <table className="distrito-table">
                 <thead>
@@ -692,7 +809,7 @@ export default function ImpactoView() {
                   </tr>
                 </thead>
                 <tbody>
-                  {districtIntelligence.map((d) => (
+                  {filteredDistrictIntelligence.map((d) => (
                     <tr key={`${d.departamento}-${d.nombre}`}>
                       <td className="td-nombre">{d.nombre}</td>
                       <td className="td-depto">{d.departamento}</td>

@@ -30,7 +30,7 @@ function expandEdadSimple(grupo: string, varones: number, mujeres: number) {
   return rows;
 }
 
-async function generateExcel() {
+export async function generateExcel() {
   const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
 

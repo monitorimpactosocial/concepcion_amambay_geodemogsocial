@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { BarChart2, Map, TrendingUp, HeartPulse, Factory, FlaskConical } from 'lucide-react';
+import { BarChart2, Download, Loader, Map, TrendingUp, HeartPulse, Factory, FlaskConical } from 'lucide-react';
 import type { ViewId } from '../types';
+import { generateExcel } from './ExportPanel';
 
 interface NavBarProps {
   activeView: ViewId;
@@ -17,6 +19,17 @@ const TABS: { id: ViewId; label: string; icon: ReactNode }[] = [
 ];
 
 export default function NavBar({ activeView, onViewChange }: NavBarProps) {
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await generateExcel();
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <nav className="navbar">
       <div className="navbar-brand">
@@ -37,6 +50,15 @@ export default function NavBar({ activeView, onViewChange }: NavBarProps) {
           </button>
         ))}
       </div>
+      <button
+        className="navbar-export-btn"
+        onClick={handleExport}
+        disabled={exporting}
+        title="Exportar datos a Excel"
+      >
+        {exporting ? <Loader size={15} className="spin" /> : <Download size={15} />}
+        <span>{exporting ? 'Generando…' : 'Excel'}</span>
+      </button>
     </nav>
   );
 }

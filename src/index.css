@@ -97,6 +97,25 @@ body {
   color: var(--emerald-700);
   font-weight: 600;
 }
+.navbar-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--emerald-600);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.navbar-export-btn:hover { background: var(--emerald-700); }
+.navbar-export-btn:disabled { opacity: 0.65; cursor: not-allowed; }
 
 /* ── VISTAS ANALÍTICAS ────────────────────────────────────── */
 .view-main {
@@ -741,6 +760,23 @@ button {
   font-size: 0.84rem;
   line-height: 1.35;
 }
+
+/* Rich district popup card */
+.tooltip-shell.rich-card { min-width: 230px; gap: 0; padding: 12px 14px; }
+.rich-tooltip.leaflet-tooltip { max-width: 280px; }
+.tt-title { font-size: 0.97rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1px; }
+.tt-dept { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px; }
+.tt-divider { border-top: 1px solid var(--border-light); margin: 6px 0; }
+.tt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 2px 0;
+  font-size: 0.82rem;
+}
+.tt-row span { color: var(--text-secondary); }
+.tt-row b { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
 
 .map-overlay {
   position: absolute;

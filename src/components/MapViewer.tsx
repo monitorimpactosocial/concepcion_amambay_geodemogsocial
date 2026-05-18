@@ -12,7 +12,9 @@ import {
 } from 'react-leaflet';
 import L, { type PathOptions } from 'leaflet';
 import type { Feature, GeoJsonObject } from 'geojson';
-import type { BasemapKey, DepartmentCode, DistrictOption, LayerVisibilityState, UPM } from '../types';
+import type { BasemapKey, DepartmentCode, DistrictOption, LayerVisibilityState } from '../types';
+import { CENSUS } from '../data/census2022';
+import type { DistrictData } from '../data/census2022';
 import {
   buildDistrictKey,
   buildFeatureCollection,
@@ -31,6 +33,30 @@ import {
   safeNumber,
 } from '../utils/geo';
 import 'leaflet/dist/leaflet.css';
+
+const FMT_N = new Intl.NumberFormat('es-PY');
+
+function lookupDistrictCensus(districtName: string, deptCode: string | null): DistrictData | null {
+  const deptKey = deptCode === '01' ? 'concepcion' : deptCode === '13' ? 'amambay' : null;
+  if (!deptKey) return null;
+  const clean = (s: string) =>
+    s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const target = clean(districtName);
+  return CENSUS[deptKey].distritos.find((d) => {
+    const dn = clean(d.nombre);
+    return dn === target || target.includes(dn) || dn.includes(target);
+  }) ?? null;
+}
+
+function choroplethColor(value: number, min: number, max: number): string {
+  const t = max > min ? (value - min) / (max - min) : 0;
+  if (t < 0.15) return '#eff6ff';
+  if (t < 0.30) return '#bfdbfe';
+  if (t < 0.50) return '#60a5fa';
+  if (t < 0.70) return '#2563eb';
+  if (t < 0.85) return '#1e40af';
+  return '#1e3a8a';
+}
 
 function shouldShowFeature(
   feature: Feature | null,
@@ -58,7 +84,6 @@ interface MapViewerProps {
   waterData: GeoJsonObject | null;
   barriosData: GeoJsonObject | null;
   manzanasData: GeoJsonObject | null;
-  viviendasFeatures: Feature[];
   indigenasData: GeoJsonObject | null;
   indigenasStats: Record<string, unknown> | null;
   indigenasPueblosMapping: Record<string, string> | null;
@@ -71,7 +96,6 @@ interface MapViewerProps {
   censoData?: GeoJsonObject | null;
   layerVisibility: LayerVisibilityState;
   selectedDistrict: DistrictOption | null;
-  sampledData?: UPM[];
 }
 
 const BASEMAPS: Record<
@@ -228,7 +252,6 @@ export default function MapViewer({
   waterData,
   barriosData,
   manzanasData,
-  viviendasFeatures,
   indigenasData,
   indigenasStats,
   indigenasPueblosMapping,
@@ -241,7 +264,6 @@ export default function MapViewer({
   censoData,
   layerVisibility,
   selectedDistrict,
-  sampledData = [],
 }: MapViewerProps) {
   const [zoomLevel, setZoomLevel] = useState(7);
 
@@ -253,22 +275,13 @@ export default function MapViewer({
     [activeDepartment, baseData],
   );
 
-  const visibleHousingFeatures = useMemo(() => {
-    const filtered = viviendasFeatures.filter((f) => shouldShowFeature(f, activeDepartment, selectedDistrictKey));
-
-    if (zoomLevel < 10) return [];
-    if (zoomLevel >= 13) return filtered;
-    if (zoomLevel === 12) return filtered.filter((_, index) => index % 2 === 0);
-    if (zoomLevel === 11) return filtered.filter((_, index) => index % 4 === 0);
-    return filtered.filter((_, index) => index % 8 === 0);
-  }, [activeDepartment, viviendasFeatures, zoomLevel]);
-
-  const housingSamplingMessage = useMemo(() => {
-    if (!layerVisibility.puntos) return null;
-    if (zoomLevel < 10) return 'Amplíe a zoom 10 o superior para visualizar puntos de viviendas.';
-    if (zoomLevel < 13) return 'Se aplica muestreo visual para mejorar rendimiento a este nivel de zoom.';
-    return null;
-  }, [layerVisibility.puntos, zoomLevel]);
+  const { choroplethMin, choroplethMax } = useMemo(() => {
+    const values = visibleBaseFeatures.map((f) =>
+      safeNumber(getProp(f, ['value', 'label_value'])),
+    );
+    if (values.length === 0) return { choroplethMin: 0, choroplethMax: 1 };
+    return { choroplethMin: Math.min(...values), choroplethMax: Math.max(...values) };
+  }, [visibleBaseFeatures]);
 
   const selectedDistrictLabel = selectedDistrict
     ? `${selectedDistrict.districtName}, ${selectedDistrict.departmentName}`
@@ -313,6 +326,7 @@ export default function MapViewer({
 
         <Pane name="base-polygons" style={{ zIndex: 200 }}>
           <GeoJSON
+            key={`base-poly-${activeDepartment ?? 'all'}-${selectedDistrictKey ?? 'none'}`}
             data={buildFeatureCollection(visibleBaseFeatures)}
             style={(feature) => {
               const baseStyle = getBasePolygonStyle(feature as Feature);
@@ -320,7 +334,7 @@ export default function MapViewer({
               return {
                 ...baseStyle,
                 weight: isSelected ? 2.5 : baseStyle.weight,
-                fillOpacity: isSelected ? 0.38 : baseStyle.fillOpacity,
+                fillOpacity: isSelected ? 0.45 : baseStyle.fillOpacity,
               };
             }}
             onEachFeature={(feature, layer) => {
@@ -328,14 +342,33 @@ export default function MapViewer({
               const districtName = getDistrictName(feature as Feature);
               const value = safeNumber(getProp(feature as Feature, ['value', 'label_value']));
               const departmentName = getDepartmentName(feature as Feature);
+              const deptCode = getDepartmentCode(feature as Feature);
+              const census = lookupDistrictCensus(districtName, deptCode);
+
+              let censusHtml = '';
+              if (census) {
+                const densidad = (census.poblacion / census.area_km2).toFixed(1);
+                const pctIndigena = census.poblacion > 0
+                  ? ((census.pob_indigena / census.poblacion) * 100).toFixed(1)
+                  : '0';
+                censusHtml = `
+                  <div class="tt-divider"></div>
+                  <div class="tt-row"><span>Población total</span><b>${FMT_N.format(census.poblacion)}</b></div>
+                  <div class="tt-row"><span>Superficie</span><b>${FMT_N.format(census.area_km2)} km²</b></div>
+                  <div class="tt-row"><span>Densidad</span><b>${densidad} hab/km²</b></div>
+                  <div class="tt-row"><span>Pob. rural</span><b>${census.pob_rural_pct}%</b></div>
+                  <div class="tt-row"><span>Pob. indígena</span><b>${FMT_N.format(census.pob_indigena)} (${pctIndigena}%)</b></div>
+                  <div class="tt-row"><span>Comunidades indíg.</span><b>${census.comunidades_indigenas}</b></div>`;
+              }
 
               layer.bindTooltip(
-                `<div class="tooltip-shell">
-                  <strong>${districtName}</strong>
-                  <span>${departmentName}</span>
-                  <span>Hogares estimados: ${new Intl.NumberFormat('es-PY').format(value)}</span>
+                `<div class="tooltip-shell rich-card">
+                  <div class="tt-title">${districtName}</div>
+                  <div class="tt-dept">${departmentName}</div>
+                  <div class="tt-row"><span>Hogares estimados</span><b>${FMT_N.format(value)}</b></div>
+                  ${censusHtml}
                 </div>`,
-                { className: 'custom-tooltip', sticky: true },
+                { className: 'custom-tooltip rich-tooltip', sticky: true },
               );
 
               layer.on('click', () => {
@@ -343,45 +376,6 @@ export default function MapViewer({
               });
             }}
           />
-        </Pane>
-
-        <Pane name="district-centroids" style={{ zIndex: 360 }}>
-          {visibleBaseFeatures.map((feature, index) => {
-            const center = pointCenterFromFeature(feature);
-            if (!center) return null;
-
-            const departmentCode = getDepartmentCode(feature);
-            const value = safeNumber(getProp(feature, ['value', 'label_value']));
-            const radius = Math.max(10, Math.min(26, Math.sqrt(value) / 7));
-            const districtKey = buildDistrictKey(feature);
-            const isSelected = districtKey === selectedDistrictKey;
-
-            return (
-              <CircleMarker
-                key={`centroid-${districtKey}-${index}`}
-                center={[center.lat, center.lng]}
-                radius={radius}
-                pathOptions={{
-                  fillColor: departmentCode === '01' ? '#2563eb' : '#7c3aed',
-                  color: '#ffffff',
-                  weight: isSelected ? 3 : 2,
-                  fillOpacity: isSelected ? 0.9 : 0.72,
-                  opacity: 1,
-                }}
-                eventHandlers={{
-                  click: () => onSelectDistrict(districtKey),
-                }}
-              >
-                <Tooltip sticky className="custom-tooltip">
-                  <div className="tooltip-react-shell">
-                    <strong>{getDistrictName(feature)}</strong>
-                    <span>{getDepartmentName(feature)}</span>
-                    <span>Hogares estimados: {new Intl.NumberFormat('es-PY').format(value)}</span>
-                  </div>
-                </Tooltip>
-              </CircleMarker>
-            );
-          })}
         </Pane>
 
         {layerVisibility.routes && routesData && (
@@ -474,27 +468,21 @@ export default function MapViewer({
           </Pane>
         )}
 
-        {layerVisibility.puntos && zoomLevel >= 10 && (
-          <Pane name="housing-points" style={{ zIndex: 500 }}>
-            {visibleHousingFeatures.map((feature, index) => {
-              const center = pointCenterFromFeature(feature);
-              if (!center) return null;
-
-              return (
-                <CircleMarker
-                  key={`house-point-${index}`}
-                  center={[center.lat, center.lng]}
-                  radius={1.8}
-                  pathOptions={{
-                    fillColor: '#f59e0b',
-                    color: 'transparent',
-                    weight: 0,
-                    fillOpacity: 0.18,
-                    interactive: false,
-                  }}
-                />
-              );
-            })}
+        {layerVisibility.puntos && (
+          <Pane name="choropleth-hogares" style={{ zIndex: 250 }}>
+            <GeoJSON
+              key={`choropleth-${activeDepartment ?? 'all'}-${selectedDistrictKey ?? 'none'}`}
+              data={buildFeatureCollection(visibleBaseFeatures)}
+              style={(feature) => {
+                const value = safeNumber(getProp(feature as Feature, ['value', 'label_value']));
+                return {
+                  color: 'transparent',
+                  weight: 0,
+                  fillColor: choroplethColor(value, choroplethMin, choroplethMax),
+                  fillOpacity: 0.65,
+                };
+              }}
+            />
           </Pane>
         )}
 
@@ -736,35 +724,6 @@ export default function MapViewer({
           </Pane>
         )}
 
-        {sampledData && sampledData.length > 0 && (
-          <Pane name="sampled-upms" style={{ zIndex: 600 }}>
-            {sampledData.map((upm, idx) => (
-              <CircleMarker
-                key={`upm-${idx}`}
-                center={[upm.lat, upm.lng]}
-                radius={8}
-                pathOptions={{
-                  fillColor: '#f59e0b',
-                  color: '#ffffff',
-                  weight: 2,
-                  fillOpacity: 1,
-                  opacity: 1
-                }}
-              >
-                <Tooltip sticky className="custom-tooltip">
-                  <div className="tooltip-react-shell large">
-                    <strong style={{ color: '#d97706' }}>UPM Seleccionada (Muestra)</strong>
-                    <span>Tipo: {upm.tipo === 'indigena' ? 'Indígena' : 'Regular'}</span>
-                    <span>Distrito: {upm.dist}</span>
-                    <span>Barrio/Comunidad: {upm.barrio}</span>
-                    <span>Manzana: {upm.manzana}</span>
-                    <span>Hogares: {upm.hogares}</span>
-                  </div>
-                </Tooltip>
-              </CircleMarker>
-            ))}
-          </Pane>
-        )}
       </MapContainer>
 
       <div className="map-overlay top-left">
@@ -772,12 +731,6 @@ export default function MapViewer({
         <div className="overlay-value">{selectedDistrictLabel}</div>
         <div className="overlay-subvalue">Zoom actual: {zoomLevel.toFixed(0)}</div>
       </div>
-
-      {housingSamplingMessage && (
-        <div className="map-overlay top-center warning">
-          <AlertNote message={housingSamplingMessage} />
-        </div>
-      )}
 
       <div className="map-overlay bottom-left legend-card">
         <div className="overlay-title">Leyenda</div>
@@ -790,14 +743,6 @@ export default function MapViewer({
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function AlertNote({ message }: { message: string }) {
-  return (
-    <div className="alert-note">
-      <span>{message}</span>
     </div>
   );
 }

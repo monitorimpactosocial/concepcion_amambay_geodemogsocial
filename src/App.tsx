@@ -8,17 +8,14 @@ import ProjectionsView from './views/ProjectionsView';
 import SocialView from './views/SocialView';
 import ImpactoView from './views/ImpactoView';
 import MetodologiaView from './views/MetodologiaView';
-import ExportPanel from './components/ExportPanel';
 import { useJsonResource } from './hooks/useJsonResource';
 import type {
   BasemapKey,
   DepartmentCode,
   LayerHealthItem,
   LayerVisibilityState,
-  UPM,
   ViewId,
 } from './types';
-import SamplingPanel from './components/SamplingPanel';
 import {
   buildDistrictOptions,
   computeBaseStats,
@@ -115,9 +112,6 @@ function App() {
   const [selectedDistrictKey, setSelectedDistrictKey] = useState<string | null>(null);
   const [resetViewToken, setResetViewToken] = useState(0);
   
-  // Sampling State
-  const [samplingOpen, setSamplingOpen] = useState(false);
-  const [sampledData, setSampledData] = useState<UPM[]>([]);
   const [activeView, setActiveView] = useState<ViewId>('mapa');
 
   const baseResource = useJsonResource<GeoJsonObject>('concepcion_amambay_hogares.geojson', true);
@@ -597,12 +591,6 @@ function App() {
         <div className="view-main"><MetodologiaView /></div>
       )}
 
-      {/* Panel exportar Excel — visible en todas las vistas no-mapa */}
-      {activeView !== 'mapa' && (
-        <div className="export-float">
-          <ExportPanel />
-        </div>
-      )}
 
       {/* Vista mapa (con loading/error igual que antes) */}
       {activeView === 'mapa' && baseResource.status === 'loading' && (
@@ -648,7 +636,6 @@ function App() {
             resetView={resetView}
             retryFailedLayers={retryFailedLayers}
             exportCurrentConfiguration={exportCurrentConfiguration}
-            onOpenGenerator={() => setSamplingOpen(true)}
           />
 
           <main className="map-main">
@@ -663,7 +650,6 @@ function App() {
               waterData={waterResource.data}
               barriosData={barriosResource.data}
               manzanasData={manzanasResource.data}
-              viviendasFeatures={mergedHousingFeatures}
               indigenasData={indigenasGeoResource.data}
               indigenasStats={indigenasStatsResource.data}
               indigenasPueblosMapping={indigenasPueblosResource.data}
@@ -676,16 +662,9 @@ function App() {
               censoData={censoResource.data}
               layerVisibility={layerVisibility}
               selectedDistrict={selectedDistrict}
-              sampledData={sampledData}
             />
           </main>
           
-          <SamplingPanel 
-             isOpen={samplingOpen} 
-             onClose={() => setSamplingOpen(false)} 
-             onSampleGenerated={setSampledData}
-             activeDepartment={activeDepartment}
-          />
         </>
       )}
     </div>

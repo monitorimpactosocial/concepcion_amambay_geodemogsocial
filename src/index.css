@@ -261,6 +261,17 @@ body {
   background: var(--bg-app);
   padding: 0;
 }
+
+.view-loading {
+  min-height: calc(100vh - 112px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 .view-container {
   max-width: 1280px;
   margin: 0 auto;
@@ -1034,6 +1045,12 @@ button {
   animation: spin 1s linear infinite;
 }
 
+.spinner-small {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1228,6 +1245,17 @@ button {
   color: #64748b;
   margin-top: 6px;
   line-height: 1.4;
+}
+
+.sm-error {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 10px;
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .sm-field.toggle label {

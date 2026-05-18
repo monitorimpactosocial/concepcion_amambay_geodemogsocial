@@ -1,18 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Download, Calculator, X, Settings2, Sparkles, MapPin } from 'lucide-react';
-import type { DepartmentCode } from '../types';
-
-interface UPM {
-  id: string;
-  tipo: string;
-  dpto: string;
-  dist: string;
-  barrio: string;
-  manzana: string;
-  hogares: number;
-  lng: number;
-  lat: number;
-}
+import type { DepartmentCode, UPM } from '../types';
+import { buildAssetUrl, getReadableError } from '../utils/geo';
 
 interface SamplingPanelProps {
   isOpen: boolean;
@@ -29,6 +18,8 @@ const Z_SCORES: Record<string, number> = {
 
 export default function SamplingPanel({ isOpen, onClose, onSampleGenerated, activeDepartment }: SamplingPanelProps) {
   const [loading, setLoading] = useState(false);
+  const [frameLoading, setFrameLoading] = useState(false);
+  const [frameError, setFrameError] = useState<string | null>(null);
   const [data, setData] = useState<UPM[]>([]);
   
   // Params
@@ -46,22 +37,56 @@ export default function SamplingPanel({ isOpen, onClose, onSampleGenerated, acti
   } | null>(null);
 
   useEffect(() => {
-    if (!isOpen && data.length === 0) return;
-    if (data.length === 0) {
-      fetch('data/marco_muestral_viviendas.json')
-        .then(r => r.json())
-        .then(d => {
-          if (d && d.data) setData(d.data);
-        })
-        .catch(e => console.error("Error loading frame", e));
+    if (!isOpen || data.length > 0) return;
+
+    const controller = new AbortController();
+
+    async function loadSamplingFrame() {
+      setFrameLoading(true);
+      setFrameError(null);
+
+      try {
+        const response = await fetch(buildAssetUrl('data/marco_muestral_viviendas.json'), {
+          signal: controller.signal,
+          cache: 'force-cache',
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} al cargar el marco muestral`);
+        }
+
+        const payload = (await response.json()) as { data?: UPM[] };
+        if (!Array.isArray(payload.data)) {
+          throw new Error('El marco muestral no contiene una lista de UPM válida.');
+        }
+
+        setData(payload.data);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setFrameError(getReadableError(err));
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setFrameLoading(false);
+        }
+      }
     }
+
+    loadSamplingFrame();
+
+    return () => controller.abort();
   }, [isOpen, data.length]);
 
   useEffect(() => {
     if (activeDepartment && targetDpto !== activeDepartment) {
       setTargetDpto(activeDepartment);
     }
-  }, [activeDepartment]);
+  }, [activeDepartment, targetDpto]);
+
+  useEffect(() => {
+    setResults(null);
+    onSampleGenerated([]);
+  }, [clusterSize, confLevel, errorMargin, onSampleGenerated, stratify, targetDpto]);
 
   const frameData = useMemo(() => {
     if (targetDpto === 'AMBOS') return data;
@@ -85,8 +110,8 @@ export default function SamplingPanel({ isOpen, onClose, onSampleGenerated, acti
       const n0 = (Math.pow(Z, 2) * p * (1 - p)) / Math.pow(e, 2);
       let n = Math.ceil(n0 / (1 + ((n0 - 1) / totalHogares)));
       
-      // Design effect adjustment (Deff) for cluster sampling is usually 1.5 - 2.0
-      // We apply a moderate Deff of 1.5 for being super sophisticated
+      // Design effect adjustment (Deff) for cluster sampling is usually 1.5 - 2.0.
+      // A moderate 1.35 keeps the default sample practical while accounting for clustering.
       const deff = 1.35; 
       n = Math.ceil(n * deff);
       
@@ -119,10 +144,10 @@ export default function SamplingPanel({ isOpen, onClose, onSampleGenerated, acti
         const start = Math.random() * interval;
         
         let cumulative = 0;
-        let ppsTargets = Array.from({length: n_st_upm}, (_, i) => start + i * interval);
+        const ppsTargets = Array.from({length: n_st_upm}, (_, i) => start + i * interval);
         
-        // Sort by geographic implicit sorting (District) to ensure implicit stratification
-        stratumFrame.sort((a,b) => String(a.dist).localeCompare(String(b.dist)));
+        // Sort by district for implicit geographic stratification without mutating the loaded frame.
+        stratumFrame = [...stratumFrame].sort((a,b) => String(a.dist).localeCompare(String(b.dist)));
         
         let targetIdx = 0;
         for (const upm of stratumFrame) {
@@ -149,10 +174,15 @@ export default function SamplingPanel({ isOpen, onClose, onSampleGenerated, acti
 
   const downloadCSV = () => {
     if (!results || !results.selectedList.length) return;
+
+    const csvEscape = (value: string | number) => {
+      const text = String(value ?? '');
+      return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
     
     const headers = ['ID_UPM', 'TIPO', 'DEPARTAMENTO', 'DISTRITO', 'BARRIO_COMUNIDAD', 'MANZANA', 'HOGARES', 'LAT', 'LNG'];
     const rows = results.selectedList.map(u => 
-      [u.id, u.tipo, u.dpto, u.dist, u.barrio, u.manzana, u.hogares, u.lat, u.lng].join(',')
+      [u.id, u.tipo, u.dpto, u.dist, u.barrio, u.manzana, u.hogares, u.lat, u.lng].map(csvEscape).join(',')
     );
     
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers.join(',') + '\n' + rows.join('\n');
@@ -189,7 +219,12 @@ export default function SamplingPanel({ isOpen, onClose, onSampleGenerated, acti
                 <option value="01">Concepción (01)</option>
                 <option value="13">Amambay (13)</option>
               </select>
-              <div className="sm-hint">Universo: {totalHogares.toLocaleString('es-PY')} hogares detectados en {frameData.length} UPMs.</div>
+              <div className="sm-hint">
+                {frameLoading
+                  ? 'Cargando marco muestral...'
+                  : `Universo: ${totalHogares.toLocaleString('es-PY')} hogares detectados en ${frameData.length} UPMs.`}
+              </div>
+              {frameError && <div className="sm-error">{frameError}</div>}
             </div>
 
             <div className="sm-field-group">
@@ -220,7 +255,7 @@ export default function SamplingPanel({ isOpen, onClose, onSampleGenerated, acti
               </label>
             </div>
 
-            <button className="primary-button generate-btn" onClick={handleGenerate} disabled={loading || totalHogares === 0}>
+            <button className="primary-button generate-btn" onClick={handleGenerate} disabled={loading || frameLoading || totalHogares === 0}>
               {loading ? 'Calculando...' : <><Calculator size={18} /> Generar Diseño Muestral</>}
             </button>
           </div>
@@ -229,7 +264,13 @@ export default function SamplingPanel({ isOpen, onClose, onSampleGenerated, acti
             {!results ? (
               <div className="sm-empty-state">
                 <MapPin size={32} />
-                <p>Configure los parámetros e inicie la generación.</p>
+                <p>
+                  {frameError
+                    ? 'Revise la carga del marco muestral antes de generar la muestra.'
+                    : frameLoading
+                      ? 'Cargando marco muestral.'
+                      : 'Configure los parámetros e inicie la generación.'}
+                </p>
               </div>
             ) : (
               <div className="sm-results-content fade-in">

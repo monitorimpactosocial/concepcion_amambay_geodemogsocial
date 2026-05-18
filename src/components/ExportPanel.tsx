@@ -12,6 +12,66 @@ const SCENARIO_LABELS: Record<ScenarioKey, string> = {
   pesimista: 'Pesimista',
 };
 
+interface SheetSpec {
+  name: string;
+  rows: unknown[][];
+}
+
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function safeSheetName(name: string): string {
+  return xmlEscape(name.replace(/[:\\/?*\[\]]/g, ' ').slice(0, 31));
+}
+
+function cellToXml(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '<Cell/>';
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return `<Cell><Data ss:Type="Number">${value}</Data></Cell>`;
+  }
+
+  return `<Cell><Data ss:Type="String">${xmlEscape(String(value))}</Data></Cell>`;
+}
+
+function downloadWorkbook(sheets: SheetSpec[], filename: string): void {
+  const worksheets = sheets.map((sheet) => {
+    const rows = sheet.rows
+      .map((row) => `<Row>${row.map(cellToXml).join('')}</Row>`)
+      .join('');
+
+    return `<Worksheet ss:Name="${safeSheetName(sheet.name)}"><Table>${rows}</Table></Worksheet>`;
+  }).join('');
+
+  const workbook = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:x="urn:schemas-microsoft-com:office:excel"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  ${worksheets}
+</Workbook>`;
+
+  const blob = new Blob([workbook], {
+    type: 'application/vnd.ms-excel;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
 // Expand quinquennial group to single ages (uniform distribution within group)
 function expandEdadSimple(grupo: string, varones: number, mujeres: number) {
   let start = 0;
@@ -30,9 +90,8 @@ function expandEdadSimple(grupo: string, varones: number, mujeres: number) {
   return rows;
 }
 
-export async function generateExcel() {
-  const XLSX = await import('xlsx');
-  const wb = XLSX.utils.book_new();
+export function generateExcel() {
+  const sheets: SheetSpec[] = [];
 
   // ── Hoja 1: Resumen departamental ─────────────────────────────────────────
   const resumenRows: unknown[][] = [
@@ -58,9 +117,7 @@ export async function generateExcel() {
       parseFloat(st.indiceEnvejecimiento.toFixed(1)),
     ]);
   }
-  const wsResumen = XLSX.utils.aoa_to_sheet(resumenRows);
-  wsResumen['!cols'] = Array(15).fill({ wch: 22 });
-  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Departamental');
+  sheets.push({ name: 'Resumen Departamental', rows: resumenRows });
 
   // ── Hoja 2: Distritos ─────────────────────────────────────────────────────
   const distRows: unknown[][] = [
@@ -80,9 +137,7 @@ export async function generateExcel() {
       ]);
     }
   }
-  const wsDistritos = XLSX.utils.aoa_to_sheet(distRows);
-  wsDistritos['!cols'] = Array(8).fill({ wch: 24 });
-  XLSX.utils.book_append_sheet(wb, wsDistritos, 'Distritos');
+  sheets.push({ name: 'Distritos', rows: distRows });
 
   // ── Hoja 3: Pirámide quinquenal ───────────────────────────────────────────
   const pirRows: unknown[][] = [
@@ -101,9 +156,7 @@ export async function generateExcel() {
       ]);
     }
   }
-  const wsPiramide = XLSX.utils.aoa_to_sheet(pirRows);
-  wsPiramide['!cols'] = Array(7).fill({ wch: 20 });
-  XLSX.utils.book_append_sheet(wb, wsPiramide, 'Pirámide Quinquenal');
+  sheets.push({ name: 'Pirámide Quinquenal', rows: pirRows });
 
   // ── Hoja 4: Edad simple ───────────────────────────────────────────────────
   const edadSimpleRows: unknown[][] = [
@@ -123,9 +176,7 @@ export async function generateExcel() {
       }
     }
   }
-  const wsEdadSimple = XLSX.utils.aoa_to_sheet(edadSimpleRows);
-  wsEdadSimple['!cols'] = Array(6).fill({ wch: 28 });
-  XLSX.utils.book_append_sheet(wb, wsEdadSimple, 'Edad Simple');
+  sheets.push({ name: 'Edad Simple', rows: edadSimpleRows });
 
   // ── Hoja 5: Pueblos indígenas ─────────────────────────────────────────────
   const puebloRows: unknown[][] = [
@@ -142,9 +193,7 @@ export async function generateExcel() {
       ]);
     }
   }
-  const wsPueblos = XLSX.utils.aoa_to_sheet(puebloRows);
-  wsPueblos['!cols'] = Array(5).fill({ wch: 26 });
-  XLSX.utils.book_append_sheet(wb, wsPueblos, 'Pueblos Indígenas');
+  sheets.push({ name: 'Pueblos Indígenas', rows: puebloRows });
 
   // ── Hojas 6–7: Proyecciones por departamento ──────────────────────────────
   for (const dk of DEPTS) {
@@ -177,9 +226,7 @@ export async function generateExcel() {
         ]);
       }
     }
-    const wsProy = XLSX.utils.aoa_to_sheet(projRows);
-    wsProy['!cols'] = Array(16).fill({ wch: 20 });
-    XLSX.utils.book_append_sheet(wb, wsProy, `Proyecc. ${c.nombre.substring(0, 11)}`);
+    sheets.push({ name: `Proyecc. ${c.nombre.substring(0, 11)}`, rows: projRows });
   }
 
   // ── Hojas 8–9: Pirámides proyectadas (escenario medio) ───────────────────
@@ -196,9 +243,7 @@ export async function generateExcel() {
         piramideRows.push([yr.anio, g.grupo, g.varones, g.mujeres, g.varones + g.mujeres]);
       }
     }
-    const wsPirProy = XLSX.utils.aoa_to_sheet(piramideRows);
-    wsPirProy['!cols'] = Array(5).fill({ wch: 18 });
-    XLSX.utils.book_append_sheet(wb, wsPirProy, `Pir. ${c.nombre.substring(0, 13)}`);
+    sheets.push({ name: `Pir. ${c.nombre.substring(0, 13)}`, rows: piramideRows });
   }
 
   // ── Hoja 10: Indicadores sociales ────────────────────────────────────────
@@ -238,9 +283,7 @@ export async function generateExcel() {
     ['Género', 'Jefatura femenina (%)', ind.indigenas_nacional.genero.jefatura_femenina_pct, ind.concepcion_total.genero.jefatura_femenina_pct, ind.amambay_total.genero.jefatura_femenina_pct],
     ['Género', 'TGF',                   ind.indigenas_nacional.genero.tgf,                   ind.concepcion_total.genero.tgf,                   ind.amambay_total.genero.tgf],
   ];
-  const wsSocial = XLSX.utils.aoa_to_sheet(socRows);
-  wsSocial['!cols'] = [{ wch: 14 }, { wch: 32 }, { wch: 22 }, { wch: 22 }, { wch: 22 }];
-  XLSX.utils.book_append_sheet(wb, wsSocial, 'Indicadores Sociales');
+  sheets.push({ name: 'Indicadores Sociales', rows: socRows });
 
   // ── Hoja 11: Series históricas ────────────────────────────────────────────
   const seriesRows: unknown[][] = [
@@ -261,13 +304,11 @@ export async function generateExcel() {
     ['Pobreza Amambay',    ...SERIES_HISTORICAS.pobreza.map(r => r.amambay)],
     ['Pobreza Paraguay',   ...SERIES_HISTORICAS.pobreza.map(r => r.paraguay)],
   ];
-  const wsSeries = XLSX.utils.aoa_to_sheet(seriesRows);
-  wsSeries['!cols'] = [{ wch: 26 }, ...Array(10).fill({ wch: 12 })];
-  XLSX.utils.book_append_sheet(wb, wsSeries, 'Series Históricas');
+  sheets.push({ name: 'Series Históricas', rows: seriesRows });
 
   // Descarga
   const fecha = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `concepcion_amambay_demografico_${fecha}.xlsx`);
+  downloadWorkbook(sheets, `concepcion_amambay_demografico_${fecha}.xls`);
 }
 
 export default function ExportPanel() {
@@ -300,7 +341,7 @@ export default function ExportPanel() {
       >
         {loading
           ? <><Loader size={16} className="spin" /> Generando…</>
-          : <><Download size={16} /> Descargar Excel (.xlsx)</>
+          : <><Download size={16} /> Descargar Excel (.xls)</>
         }
       </button>
       <p className="export-note">

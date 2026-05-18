@@ -18,15 +18,15 @@ Aplicación web en React + Vite + Leaflet para visualizar información geodemogr
 ## Instalación
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
 ## Verificación recomendada antes de publicar
 
 ```bash
-npm run typecheck
-npm run build
+npm ci
+npm run check
 ```
 
 ## Estructura principal
@@ -37,6 +37,7 @@ npm run build
 - `src/hooks/useJsonResource.ts`, carga tolerante a fallas y cache local.
 - `src/utils/geo.ts`, normalización de campos, filtros, centros, conteos y bounds.
 - `AUDITORIA_TECNICA.md`, hallazgos y acciones correctivas.
+- `BITACORA.md`, continuidad operativa, verificaciones y próximos pasos.
 
 ## Despliegue
 

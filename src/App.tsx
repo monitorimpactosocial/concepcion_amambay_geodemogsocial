@@ -1,15 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import type { GeoJsonObject } from 'geojson';
 import MapViewer from './components/MapViewer';
 import Sidebar from './components/Sidebar';
 import NavBar from './components/NavBar';
 import GlobalFilterBar from './components/GlobalFilterBar';
-import DemographyView from './views/DemographyView';
-import ProjectionsView from './views/ProjectionsView';
-import SocialView from './views/SocialView';
-import ImpactoView from './views/ImpactoView';
-import ReporteView from './views/ReporteView';
-import MetodologiaView from './views/MetodologiaView';
 import { useJsonResource } from './hooks/useJsonResource';
 import type {
   BasemapKey,
@@ -29,6 +23,13 @@ import {
   getDistrictByKey,
   mergeFeatureCollections,
 } from './utils/geo';
+
+const DemographyView = lazy(() => import('./views/DemographyView'));
+const ProjectionsView = lazy(() => import('./views/ProjectionsView'));
+const SocialView = lazy(() => import('./views/SocialView'));
+const ImpactoView = lazy(() => import('./views/ImpactoView'));
+const ReporteView = lazy(() => import('./views/ReporteView'));
+const MetodologiaView = lazy(() => import('./views/MetodologiaView'));
 
 const STORAGE_KEY = 'monitor-impacto-social:v2';
 
@@ -119,6 +120,15 @@ function readStoredState(): {
       horizonYear: 2042,
     };
   }
+}
+
+function ViewLoading({ label = 'Cargando vista' }: { label?: string }) {
+  return (
+    <div className="view-loading">
+      <div className="spinner spinner-small" />
+      <span>{label}</span>
+    </div>
+  );
 }
 
 function App() {
@@ -660,22 +670,46 @@ function App() {
 
       {/* Vistas no-mapa: demografía, proyecciones, indicadores sociales */}
       {activeView === 'demografia' && (
-        <div className="view-main"><DemographyView filters={globalFilters} /></div>
+        <div className="view-main">
+          <Suspense fallback={<ViewLoading label="Cargando demografía" />}>
+            <DemographyView filters={globalFilters} />
+          </Suspense>
+        </div>
       )}
       {activeView === 'proyecciones' && (
-        <div className="view-main"><ProjectionsView filters={globalFilters} /></div>
+        <div className="view-main">
+          <Suspense fallback={<ViewLoading label="Cargando proyecciones" />}>
+            <ProjectionsView filters={globalFilters} />
+          </Suspense>
+        </div>
       )}
       {activeView === 'social' && (
-        <div className="view-main"><SocialView filters={globalFilters} /></div>
+        <div className="view-main">
+          <Suspense fallback={<ViewLoading label="Cargando indicadores sociales" />}>
+            <SocialView filters={globalFilters} />
+          </Suspense>
+        </div>
       )}
       {activeView === 'impacto' && (
-        <div className="view-main"><ImpactoView filters={globalFilters} /></div>
+        <div className="view-main">
+          <Suspense fallback={<ViewLoading label="Cargando impacto PARACEL" />}>
+            <ImpactoView filters={globalFilters} />
+          </Suspense>
+        </div>
       )}
       {activeView === 'reporte' && (
-        <div className="view-main"><ReporteView filters={globalFilters} /></div>
+        <div className="view-main">
+          <Suspense fallback={<ViewLoading label="Cargando reporte" />}>
+            <ReporteView filters={globalFilters} />
+          </Suspense>
+        </div>
       )}
       {activeView === 'metodologia' && (
-        <div className="view-main"><MetodologiaView /></div>
+        <div className="view-main">
+          <Suspense fallback={<ViewLoading label="Cargando metodología" />}>
+            <MetodologiaView />
+          </Suspense>
+        </div>
       )}
 
 

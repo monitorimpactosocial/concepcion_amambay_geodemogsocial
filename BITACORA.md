@@ -1,4 +1,35 @@
-# Bitacora operativa
+﻿# Bitacora operativa
+
+## 2026-05-18 - Optimizacion de carga, exportacion sin SheetJS y verificacion limpia
+
+### Diagnostico atendido
+
+- La copia local ubicada en `I:\Mi unidad\CONCEPCION_AMAMBAY_GEODEMOGSOCIAL` estaba desactualizada frente a `origin/main` y su `.git` fallaba con `fatal: bad object HEAD`.
+- `origin/main` ya contenia filtros globales, impacto PARACEL, reporte PDF, metodologia y una bitacora extensa; por eso la base canonica para publicar debe ser un clon limpio del remoto.
+- `npm install` dentro de la carpeta sincronizada por Drive puede fallar con `EBADF/EPERM` al escribir `node_modules`; la verificacion se hizo en copia temporal local.
+
+### Cambios aplicados
+
+- Se agrego `package-lock.json` y `.npmrc`.
+- El workflow de GitHub Pages ahora usa `npm ci` manteniendo `git lfs pull` y el preparador de assets.
+- Se elimino la dependencia `xlsx`, que mantenia vulnerabilidades altas sin fix disponible en npm.
+- `src/components/ExportPanel.tsx` ahora genera un libro Excel XML `.xls` con multiples hojas sin SheetJS.
+- Las vistas pesadas se cargan bajo demanda con `React.lazy`/`Suspense`.
+- El generador PPS usa `buildAssetUrl`, valida HTTP, muestra errores de marco muestral, evita mutar datos al ordenar y escapa CSV.
+
+### Verificacion local
+
+- `npm ci`: exitoso en copia temporal limpia.
+- `npm run check`: exitoso.
+- `npm audit --omit=dev`: 0 vulnerabilidades.
+- Servidor local de prueba: `http://127.0.0.1:5173/concepcion_amambay_geodemogsocial/`.
+
+### Estado de publicacion
+
+- Commit local preparado en clon limpio: `HEAD` local - `perf: optimizar carga y exportacion`.
+- `git push` por HTTPS no pudo completarse por falta de credenciales interactivas en la sesion (`could not read Username for 'https://github.com'`).
+- Pendiente: empujar el commit desde una sesion con credenciales GitHub disponibles.
+- Luego del push: verificar workflow `Deploy to GitHub Pages` y hacer smoke test publicado de mapa, filtros globales, reporte, exportacion Excel, capas principales y marco muestral.
 
 ## 2026-05-18 - Filtros globales, series historicas-actuales-proyectadas e hitos PARACEL
 

@@ -108,3 +108,18 @@
   - `*.geojson -filter -diff -merge text`
   - `*.json -filter -diff -merge text`
 - Objetivo: que los archivos publicados en `gh-pages` se commiteen como archivos web reales y no como punteros LFS.
+
+### Cierre verificado del segundo push
+
+- Commit `e9c018f` fue empujado a `main`.
+- Workflow `Deploy to GitHub Pages` para `e9c018f`: `success`.
+- Workflow `pages build and deployment` para `gh-pages` commit `5b3f815d39aaebe4cff53b44d61a18a7030f7520`: `success`.
+- Verificacion viva con cache-busting `?v=e9c018f`:
+  - `concepcion_amambay_hogares.geojson`: 2.87 MB, GeoJSON real, no puntero LFS.
+  - `concepcion_amambay_rutas.geojson`: 0.55 MB, GeoJSON real, no puntero LFS.
+  - `locales_de_salud.geojson`: 0.77 MB, GeoJSON real, no puntero LFS.
+  - `uso_de_suelo_concepcion.geojson`: 93.49 MB, GeoJSON real optimizado, no puntero LFS.
+  - `uso_de_suelo_amambay.geojson`: 56.45 MB, GeoJSON real optimizado, no puntero LFS.
+  - `censo_2022_indicadores.geojson`: 79.05 MB, GeoJSON real, no puntero LFS.
+  - `data/marco_muestral_viviendas.json`: 1.18 MB, JSON real, no puntero LFS.
+- Estado: la falla critica de publicacion de GeoJSON como punteros LFS quedo corregida y validada en produccion.

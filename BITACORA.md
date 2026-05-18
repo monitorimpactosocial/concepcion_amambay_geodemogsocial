@@ -1,5 +1,84 @@
 # Bitacora operativa
 
+## 2026-05-18 - Impacto PARACEL v2, reporte PDF y calibracion con fuentes publicas
+
+### Pedido atendido
+
+- Se profundizo la version que estima niveles de impacto de PARACEL en su area de influencia.
+- Objetivo funcional: agregar mas KPIs, tablas y figuras para entender la situacion antes, durante y despues de PARACEL.
+- Se incorporo ademas una vista imprimible de reporte socioeconomico completo para PDF, porque seguia pendiente desde la auditoria anterior.
+
+### Fuentes publicas verificadas
+
+- Paracel web institucional: 1.800.000 t/anio de produccion anual de celulosa, USD 2,9 mil millones de inversion industrial, 220 MW, 203.515 ha propias, 82.471 ha plantadas y 1.040 empleos directos reportados.
+- BID Invest, nota del 10/03/2026: financiamiento de hasta USD 165 millones y expectativa de alrededor de 7.000 empleos directos e indirectos.
+- Agencia IP, nota del 09/04/2025: 6.000.000 m3 de movimiento de suelo, inversion total estimada de USD 4.000 millones, 1.800 empleos directos de obra, 7.200 empleos totales y alojamiento C9 para mas de 2.000 personas.
+
+### Cambios funcionales
+
+- `src/views/ImpactoView.tsx`: redisenio completo del modulo de impacto con lectura ejecutiva, magnitudes publicas, linea base social, fases antes/durante/operacion/consolidacion, 8 KPIs estrategicos, 4 figuras, matriz de brechas y ranking distrital inteligente.
+- `src/data/impactoEngine.ts`: escenarios recalibrados para que el escenario medio use 1.040 empleos directos de operacion, 1.800 empleos directos de obra y multiplicadores compatibles con la referencia publica de 7.000 empleos directos/indirectos.
+- `src/views/ReporteView.tsx`: nueva pestana `Reporte PDF` con reporte socioeconomico integral imprimible: historico, situacion actual, proyecciones 2022-2052 e impacto PARACEL.
+- `src/components/NavBar.tsx`, `src/App.tsx`, `src/types.ts`: integracion de la nueva vista `Reporte PDF`.
+- `src/views/MetodologiaView.tsx`: se agrego la tabla de magnitudes publicas usadas para calibrar Impacto PARACEL v2 y se corrigio la formula/documentacion del empleo inducido.
+- `src/index.css`: estilos de reporte, panel de impacto y reglas de impresion para que la SPA pueda generar PDF completo sin cortar el contenido por el alto del viewport.
+
+### Nuevos elementos analiticos agregados
+
+- KPIs de escala: produccion anual, energia, inversion industrial, tierras propias, superficie plantada, empleos directos actuales, empleos esperados, alojamiento y avance fisico de obra.
+- KPIs socioeconomicos: poblacion base, ruralidad, poblacion indigena, pobreza, sin seguro medico, sin agua potable, empleo total, captura local, ingreso local, brecha de proveedores, cupos de formacion y demanda habitacional.
+- Figuras: evolucion antes/durante/despues, radar de tensiones, evolucion temporal del impacto y encadenamiento de valor por compras/proveedores.
+- Tablas: matriz de brechas de gestion, ranking distrital inteligente, situacion actual por departamento, proyeccion social-demografica y agenda de gestion por fase.
+- Salida PDF: botones `Imprimir / PDF` en Impacto PARACEL y en Reporte PDF.
+
+### Verificaciones ejecutadas
+
+- `npm run check`: exitoso.
+- `npm run typecheck`: exitoso dentro del check.
+- `npm run build`: exitoso dentro del check.
+- Vista previa local: `npm run preview -- --host 127.0.0.1 --port 4174` responde `HTTP 200` en `http://127.0.0.1:4174/concepcion_amambay_geodemogsocial/`.
+- Validacion de bundle local: contiene `Reporte PDF`, `Situacion socioeconomica`, `Imprimir / PDF`, `Magnitudes publicas` e `Intervencion prioritaria`.
+
+### Pendiente operativo inmediato
+
+- Commit y push desde el clon limpio.
+- Esperar el workflow de GitHub Pages y verificar en vivo que la app publicada contenga `Reporte PDF`, `Imprimir / PDF` y las nuevas tablas/figuras de Impacto PARACEL.
+
+## 2026-05-18 - Integracion de matriz 2025-2026 aportada por usuario
+
+### Insumo recibido
+
+- El usuario aporto una matriz de indicadores recientes 2025-2026 con codigos ECO, SAL, EDU y EMP.
+- Cobertura: economia nacional y departamental, contribuyentes, construccion, inmuebles, forestacion, salud, educacion y empleo.
+- Criterio aplicado: usar el insumo como capa de senales tempranas, no como texto narrativo suelto.
+
+### Implementacion
+
+- `src/data/contexto2025.ts`: nuevo dataset tipado con 33 indicadores, categoria, ambito, actualizacion, fuente declarada y relevancia.
+- `src/data/contexto2025.ts`: nuevo `CONTEXT_SIGNAL_INDEX` con 7 dimensiones sinteticas:
+  - Macro y demanda.
+  - Formalizacion.
+  - Construccion y suelo.
+  - Forestal e industria.
+  - Mercado laboral.
+  - Salud y proteccion.
+  - Educacion y habilidades.
+- `src/views/ReporteView.tsx`: se agrego bloque de KPIs 2025-2026, grafico de oportunidades/presiones, tabla interpretativa de senales e indicadores priorizados para monitoreo.
+- `src/views/ImpactoView.tsx`: se agrego grafico de sensores 2025-2026 para conectar la simulacion PARACEL con senales economicas, laborales, inmobiliarias, sanitarias y educativas recientes.
+
+### Uso analitico logrado
+
+- El reporte ya no depende solo de Censo 2022 y proyecciones: incorpora un pulso 2025-2026 para anticipar presiones reales.
+- Las senales de construccion, inmuebles, contribuyentes, forestacion y mercado laboral ayudan a definir KPIs de monitoreo antes/durante/despues de PARACEL.
+- Las senales de salud y educacion funcionan como alertas de capacidad local: cobertura de seguro baja, presion sobre red publica y brechas de habilidades tecnicas.
+
+### Verificacion
+
+- `npm run check`: exitoso.
+- `npm run typecheck`: exitoso dentro del check.
+- `npm run build`: exitoso dentro del check.
+- El bundle local contiene `Pulso economico y social 2025-2026`, `Sensores 2025-2026` e `Indicadores 2025-2026 priorizados`.
+
 ## 2026-05-18 - Auditoria de situacion actual, bitacora y ultimos commits
 
 ### Contexto de la revision

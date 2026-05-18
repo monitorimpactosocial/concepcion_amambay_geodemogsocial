@@ -7,6 +7,7 @@ import DemographyView from './views/DemographyView';
 import ProjectionsView from './views/ProjectionsView';
 import SocialView from './views/SocialView';
 import ImpactoView from './views/ImpactoView';
+import ReporteView from './views/ReporteView';
 import MetodologiaView from './views/MetodologiaView';
 import { useJsonResource } from './hooks/useJsonResource';
 import type {
@@ -586,6 +587,9 @@ function App() {
       )}
       {activeView === 'impacto' && (
         <div className="view-main"><ImpactoView /></div>
+      )}
+      {activeView === 'reporte' && (
+        <div className="view-main"><ReporteView /></div>
       )}
       {activeView === 'metodologia' && (
         <div className="view-main"><MetodologiaView /></div>

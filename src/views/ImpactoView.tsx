@@ -1,10 +1,30 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
+  Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   CartesianGrid, ResponsiveContainer, Legend, ReferenceLine,
+  ComposedChart, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from 'recharts';
-import { Factory, Users, Building2, Coins, TrendingUp, AlertTriangle, Calendar } from 'lucide-react';
+import {
+  AlertTriangle,
+  Building2,
+  Calendar,
+  Coins,
+  Factory,
+  FileText,
+  GraduationCap,
+  Gauge,
+  Home,
+  Landmark,
+  Printer,
+  ShieldCheck,
+  Trees,
+  Truck,
+  Users,
+} from 'lucide-react';
 import KPICard from '../components/charts/KPICard';
+import { CENSUS } from '../data/census2022';
+import { SOCIAL_INDICATORS } from '../data/socialIndicators';
+import { CONTEXT_SIGNAL_INDEX } from '../data/contexto2025';
 import {
   computeImpacto,
   ESCENARIOS_PRESET,
@@ -12,8 +32,40 @@ import {
   type ImpactoParams,
   type ImpactoDistrito,
 } from '../data/impactoEngine';
+
 const FMT_MRD = (n: number) => (n / 1_000_000_000).toLocaleString('es-PY', { maximumFractionDigits: 1 }) + ' MM';
-const FMT_N = (n: number) => n.toLocaleString('es-PY');
+const FMT_N = (n: number) => Math.round(n).toLocaleString('es-PY');
+const FMT_PCT = (n: number, digits = 1) => `${n.toFixed(digits)}%`;
+
+const PARACEL_FACTS = {
+  produccionAnualTon: 1_800_000,
+  energiaMW: 220,
+  inversionIndustrialUsd: 2_900_000_000,
+  inversionTotalUsdRef: 4_000_000_000,
+  tierrasPropiasHa: 203_515,
+  tierrasPlantadasHa: 82_471,
+  empleosDirectosActuales: 1_040,
+  empleosDirectosIndirectosRef: 7_000,
+  empleosObraDirectosRef: 1_800,
+  empleosObraTotalRef: 7_200,
+  movimientoSueloM3: 6_000_000,
+  alojamientoC9: 2_000,
+};
+
+const ESCENARIO_LABELS: Record<EscenarioKey, { label: string; desc: string }> = {
+  conservador: {
+    label: 'Conservador',
+    desc: 'Baja captura local y bajo encadenamiento de proveedores regionales.',
+  },
+  medio: {
+    label: 'Medio',
+    desc: 'Calibrado con magnitudes públicas recientes y captura local progresiva.',
+  },
+  transformador: {
+    label: 'Transformador',
+    desc: 'Alto encadenamiento, formación técnica acelerada y mayor retención local.',
+  },
+};
 
 function SliderField({
   label, value, min, max, step, unit, onChange, hint,
@@ -49,28 +101,77 @@ function SliderField({
 
 function RiskBadge({ nivel }: { nivel: 'alta' | 'media' | 'baja' }) {
   const map = {
-    alta:  { cls: 'badge-red',    txt: 'Alta' },
-    media: { cls: 'badge-amber',  txt: 'Media' },
-    baja:  { cls: 'badge-green',  txt: 'Baja' },
+    alta: { cls: 'badge-red', txt: 'Alta' },
+    media: { cls: 'badge-amber', txt: 'Media' },
+    baja: { cls: 'badge-green', txt: 'Baja' },
   };
   const { cls, txt } = map[nivel];
   return <span className={`risk-badge ${cls}`}>{txt}</span>;
 }
 
-const ESCENARIO_LABELS: Record<EscenarioKey, { label: string; desc: string }> = {
-  conservador: {
-    label: 'Conservador',
-    desc: 'Baja captura local, alta importación de mano de obra calificada.',
-  },
-  medio: {
-    label: 'Medio',
-    desc: 'Captura local progresiva con capacitación y proveedores regionales.',
-  },
-  transformador: {
-    label: 'Transformador',
-    desc: 'Fuerte encadenamiento local, formación técnica y retención de ingreso.',
-  },
+function PriorityBadge({ score }: { score: number }) {
+  if (score >= 75) return <span className="risk-badge badge-red">Intervención prioritaria</span>;
+  if (score >= 50) return <span className="risk-badge badge-amber">Seguimiento activo</span>;
+  return <span className="risk-badge badge-green">Gestión ordinaria</span>;
+}
+
+function FactCard({
+  icon, label, value, source,
+}: { icon: ReactNode; label: string; value: string; source: string }) {
+  return (
+    <div className="fact-card">
+      <div className="fact-icon">{icon}</div>
+      <div>
+        <strong>{value}</strong>
+        <span>{label}</span>
+        <small>{source}</small>
+      </div>
+    </div>
+  );
+}
+
+const totalPoblacionBase = CENSUS.concepcion.poblacion_total + CENSUS.amambay.poblacion_total;
+const totalPobIndigena = CENSUS.concepcion.pob_indigena + CENSUS.amambay.pob_indigena;
+const totalRural = CENSUS.concepcion.pob_rural + CENSUS.amambay.pob_rural;
+const hogaresBaseEstimados = Math.round(totalPoblacionBase / 3.5);
+
+function weightedSocial(
+  getter: (k: 'concepcion_total' | 'amambay_total') => number,
+): number {
+  const con = SOCIAL_INDICATORS.concepcion_total;
+  const ama = SOCIAL_INDICATORS.amambay_total;
+  return (
+    getter('concepcion_total') * CENSUS.concepcion.poblacion_total +
+    getter('amambay_total') * CENSUS.amambay.poblacion_total
+  ) / (CENSUS.concepcion.poblacion_total + CENSUS.amambay.poblacion_total) ||
+    (con.pobreza.incidencia_pobreza_pct + ama.pobreza.incidencia_pobreza_pct) / 2;
+}
+
+const baseline = {
+  poblacion: totalPoblacionBase,
+  ruralPct: (totalRural / totalPoblacionBase) * 100,
+  indigenaPct: (totalPobIndigena / totalPoblacionBase) * 100,
+  pobrezaPct: weightedSocial((k) => SOCIAL_INDICATORS[k].pobreza.incidencia_pobreza_pct),
+  sinSeguroPct: weightedSocial((k) => SOCIAL_INDICATORS[k].salud.sinSeguroMedico_pct),
+  sinAguaPct: weightedSocial((k) => SOCIAL_INDICATORS[k].vivienda.sin_agua_potable_pct),
+  actividadPct: weightedSocial((k) => SOCIAL_INDICATORS[k].empleo.tasa_actividad_pct),
 };
+
+function districtPopulation(nombre: string): number {
+  for (const dept of Object.values(CENSUS)) {
+    const found = dept.distritos.find((d) => d.nombre === nombre);
+    if (found) return found.poblacion;
+  }
+  return 0;
+}
+
+function districtRuralPct(nombre: string): number {
+  for (const dept of Object.values(CENSUS)) {
+    const found = dept.distritos.find((d) => d.nombre === nombre);
+    if (found) return found.pob_rural_pct;
+  }
+  return 0;
+}
 
 export default function ImpactoView() {
   const [escenario, setEscenario] = useState<EscenarioKey>('medio');
@@ -82,85 +183,240 @@ export default function ImpactoView() {
   };
 
   const setParam = <K extends keyof ImpactoParams>(key: K, value: ImpactoParams[K]) => {
-    setEscenario('medio'); // salir del preset si el usuario cambia un parámetro
+    setEscenario('medio');
     setParams((p) => ({ ...p, [key]: value }));
   };
 
   const result = useMemo(() => computeImpacto(params), [params]);
 
-  // ── Evolución temporal año a año ──────────────────────────────────────────
+  const faseData = useMemo(() => {
+    const obraTotal = Math.max(
+      PARACEL_FACTS.empleosObraTotalRef,
+      Math.round(params.empleoDirectoObra * (1 + Math.max(3, params.multiplicadorIndirecto * 0.72))),
+    );
+    const obraIngreso = params.empleoDirectoObra * params.salarioMensualGs * 12 *
+      (params.proporcionResidenteLocal_pct / 100) * 0.72;
+    return [
+      {
+        fase: 'Antes',
+        periodo: `${params.anioInicioObra - 1}`,
+        empleo: Math.round(params.empleoDirectoObra * 0.08),
+        residentes: 0,
+        hogares: 0,
+        ingresoMM: 0,
+        presion: 8,
+        foco: 'Línea base, empleo rural y brechas sociales',
+        gestion: 'Preparar formación técnica y proveedores',
+      },
+      {
+        fase: 'Durante obra',
+        periodo: `${params.anioInicioObra}-${result.anioFinObra}`,
+        empleo: obraTotal,
+        residentes: Math.round(result.pobInducidaTotal * 0.48),
+        hogares: Math.round(result.hogaresAdicionalesTotal * 0.42),
+        ingresoMM: Math.round(obraIngreso / 1_000_000_000),
+        presion: Math.min(100, Math.round(result.presionViviendaGlobal * 1.35 + 18)),
+        foco: 'Pico de mano de obra, alojamiento, transporte y precios',
+        gestion: 'Monitorear alquileres, seguridad vial y servicios urbanos',
+      },
+      {
+        fase: 'Operación plena',
+        periodo: `${result.anioOperacionPlena}+`,
+        empleo: result.empleoTotal,
+        residentes: result.pobInducidaTotal,
+        hogares: result.hogaresAdicionalesTotal,
+        ingresoMM: Math.round(result.ingresoTotalLocalAnualGs / 1_000_000_000),
+        presion: Math.max(result.presionViviendaGlobal, result.presionServiciosGlobal),
+        foco: 'Empleo estable, cadena de proveedores y migracion familiar',
+        gestion: 'Formalizar proveedores y cerrar brechas de oficio',
+      },
+      {
+        fase: 'Consolidacion',
+        periodo: `${result.anioOperacionPlena + 3}+`,
+        empleo: Math.round(result.empleoTotal * 1.12),
+        residentes: Math.round(result.pobInducidaTotal * 1.08),
+        hogares: Math.round(result.hogaresAdicionalesTotal * 1.05),
+        ingresoMM: Math.round(result.ingresoTotalLocalAnualGs / 1_000_000_000 * 1.25),
+        presion: Math.min(100, Math.round(Math.max(result.presionViviendaGlobal, result.presionServiciosGlobal) * 0.82)),
+        foco: 'Maduracion de proveedores, nueva demanda urbana y especializacion',
+        gestion: 'Planificar suelo urbano, servicios y educación técnica',
+      },
+    ];
+  }, [params, result]);
+
   const evolutionData = useMemo(() => {
-    const startYr = params.anioInicioObra;
-    const obraEnd = result.anioFinObra;
     const rows: { anio: number; empTotal: number; empDir: number; ingresoMM: number; residentes: number }[] = [];
-
-    for (let yr = startYr - 1; yr <= result.anioOperacionPlena + 5; yr++) {
-      let empDir = 0, empTotal = 0, ingresoMM = 0, residentes = 0;
-
-      if (yr < startYr) {
-        empDir = Math.round(params.empleoDirectoObra * 0.06);
-        empTotal = Math.round(params.empleoDirectoObra * 0.09);
-      } else if (yr < obraEnd) {
-        const n = Math.max(1, obraEnd - startYr);
-        const t = yr - startYr;
-        const ramp = n === 1 ? 1 : (t === 0 ? 0.55 : t === n - 1 ? 0.82 : 1.0);
-        empDir = Math.round(params.empleoDirectoObra * ramp);
-        empTotal = Math.round(empDir * (1 + params.multiplicadorIndirecto));
-        const msLocal = empDir * params.salarioMensualGs * 12
-          * (params.capturaLocal_pct / 100) * (params.proporcionResidenteLocal_pct / 100);
-        ingresoMM = Math.round(msLocal / 1_000_000_000);
-        residentes = Math.round(result.pobInducidaTotal * ramp * 0.4);
-      } else {
-        const opT = yr - obraEnd;
-        const mat = Math.min(1.0, 0.45 + opT * 0.18);
-        empDir = Math.round(result.empleoDirectoTotal * mat);
-        empTotal = Math.round(result.empleoTotal * mat);
-        ingresoMM = Math.round(result.ingresoTotalLocalAnualGs / 1_000_000_000 * mat);
-        residentes = Math.round(result.pobInducidaTotal * Math.min(1.0, 0.55 + opT * 0.15));
-      }
-      rows.push({ anio: yr, empDir, empTotal, ingresoMM, residentes });
+    for (let yr = params.anioInicioObra - 1; yr <= result.anioOperacionPlena + 5; yr++) {
+      const fase = yr < params.anioInicioObra
+        ? faseData[0]
+        : yr <= result.anioFinObra
+          ? faseData[1]
+          : yr < result.anioOperacionPlena + 3
+            ? faseData[2]
+            : faseData[3];
+      const ramp = yr < params.anioInicioObra
+        ? 1
+        : yr <= result.anioFinObra
+          ? Math.min(1, 0.55 + (yr - params.anioInicioObra) * 0.2)
+          : yr < result.anioOperacionPlena + 3
+            ? Math.min(1, 0.72 + (yr - result.anioFinObra) * 0.12)
+            : 1;
+      rows.push({
+        anio: yr,
+        empDir: Math.round((yr <= result.anioFinObra ? params.empleoDirectoObra : result.empleoDirectoTotal) * ramp),
+        empTotal: Math.round(fase.empleo * ramp),
+        ingresoMM: Math.round(fase.ingresoMM * ramp),
+        residentes: Math.round(fase.residentes * ramp),
+      });
     }
     return rows;
-  }, [params, result]);
+  }, [faseData, params, result]);
 
-  // ── Hitos del proyecto ────────────────────────────────────────────────────
-  const milestones = useMemo(() => {
-    const items: { anio: number; label: string; desc: string; tipo: 'prep'|'clave'|'normal'|'hito' }[] = [
-      { anio: params.anioInicioObra - 1, label: 'Gestión y permisos', desc: 'EIA, licencias ambientales, negociaciones territoriales', tipo: 'prep' },
-      { anio: params.anioInicioObra, label: 'Inicio de obra civil', desc: `Inicio de construcción. Pico de empleo: ${FMT_N(params.empleoDirectoObra)} pers.`, tipo: 'clave' },
-      { anio: params.anioInicioObra + 1, label: 'Instalación de equipamiento', desc: 'Montaje de maquinaria industrial y pruebas técnicas', tipo: 'normal' },
+  const radarData = useMemo(() => [
+    {
+      dimension: 'Empleo',
+      Antes: 8,
+      Durante: Math.min(100, faseData[1].empleo / 80),
+      Despues: Math.min(100, result.empleoTotal / 80),
+    },
+    {
+      dimension: 'Ingreso',
+      Antes: 6,
+      Durante: Math.min(100, faseData[1].ingresoMM / 2),
+      Despues: Math.min(100, faseData[2].ingresoMM / 2),
+    },
+    {
+      dimension: 'Vivienda',
+      Antes: 12,
+      Durante: faseData[1].presion,
+      Después: result.presionViviendaGlobal,
+    },
+    {
+      dimension: 'Servicios',
+      Antes: 18,
+      Durante: Math.min(100, result.presionServiciosGlobal * 1.25 + 12),
+      Después: result.presionServiciosGlobal,
+    },
+    {
+      dimension: 'Proveedores',
+      Antes: 14,
+      Durante: params.pctComprasLocales,
+      Despues: Math.min(100, params.pctComprasLocales * 1.35),
+    },
+    {
+      dimension: 'Capacitacion',
+      Antes: 30,
+      Durante: Math.max(20, 100 - params.pctNoLocales),
+      Despues: params.capturaLocal_pct,
+    },
+  ], [faseData, params, result]);
+
+  const brechas = useMemo(() => {
+    const empleoReferencia = PARACEL_FACTS.empleosDirectosIndirectosRef;
+    const comprasMeta = params.presupuestoComprasAnualGs * 0.6;
+    const cuposFormacion = Math.max(0, Math.round((result.empleoImportado + result.empleoIndirecto * 0.22) * 0.65));
+    const hogaresSensibles = Math.max(0, result.hogaresAdicionalesTotal - Math.round(hogaresBaseEstimados * 0.006));
+    return [
+      {
+        area: 'Empleo local',
+        actual: result.empleoLocal,
+        meta: Math.round(result.empleoDirectoTotal * 0.8),
+        brecha: Math.max(0, Math.round(result.empleoDirectoTotal * 0.8) - result.empleoLocal),
+        decision: 'Cupos de formación técnica antes del pico de contratación',
+      },
+      {
+        area: 'Empleo total',
+        actual: result.empleoTotal,
+        meta: empleoReferencia,
+        brecha: Math.max(0, empleoReferencia - result.empleoTotal),
+        decision: 'Acelerar proveedores y servicios de soporte regional',
+      },
+      {
+        area: 'Proveedores locales',
+        actual: Math.round(result.comprasLocalesAnualesGs / 1_000_000_000),
+        meta: Math.round(comprasMeta / 1_000_000_000),
+        brecha: Math.max(0, Math.round((comprasMeta - result.comprasLocalesAnualesGs) / 1_000_000_000)),
+        decision: 'Programa de homologación y financiamiento de pymes',
+      },
+      {
+        area: 'Vivienda',
+        actual: result.hogaresAdicionalesTotal,
+        meta: Math.round(hogaresBaseEstimados * 0.006),
+        brecha: hogaresSensibles,
+        decision: 'Inventario de alquileres, suelo urbano y alojamiento temporal',
+      },
+      {
+        area: 'Formacion',
+        actual: 0,
+        meta: cuposFormacion,
+        brecha: cuposFormacion,
+        decision: 'Meta mínima de becas, oficios industriales y logística',
+      },
     ];
-    if (params.duracionObraAnios > 2) {
-      items.push({ anio: result.anioFinObra - 1, label: 'Puesta en marcha', desc: 'Comisioning y ajuste de procesos productivos', tipo: 'normal' });
-    }
-    items.push(
-      { anio: result.anioFinObra, label: 'Inicio de producción', desc: `Primer producto. Empleo permanente: ${FMT_N(params.empleoDirectoOperacion)} pers.`, tipo: 'clave' },
-      { anio: result.anioOperacionPlena, label: 'Plena capacidad operativa', desc: `Ingreso local est.: ${FMT_MRD(result.ingresoTotalLocalAnualGs)} Gs/año`, tipo: 'hito' },
-      { anio: result.anioOperacionPlena + 3, label: 'Consolidación proveedores', desc: `~${FMT_N(result.proveedoresLocalesEstimados)} proveedores locales integrados`, tipo: 'normal' },
-    );
-    return items;
   }, [params, result]);
 
-  const empleoChartData = [
-    { nombre: 'Directo', valor: result.empleoDirectoTotal },
-    { nombre: 'Indirecto', valor: result.empleoIndirecto },
-    { nombre: 'Inducido', valor: result.empleoInducido },
-  ];
+  const valueChainData = useMemo(() => [
+    { rubro: 'Forestacion', montoMM: Math.round(result.comprasLocalesAnualesGs / 1_000_000_000 * 0.28), empleo: Math.round(result.empleoIndirecto * 0.22), prioridad: 'alta' },
+    { rubro: 'Transporte', montoMM: Math.round(result.comprasLocalesAnualesGs / 1_000_000_000 * 0.20), empleo: Math.round(result.empleoIndirecto * 0.18), prioridad: 'alta' },
+    { rubro: 'Mantenimiento', montoMM: Math.round(result.comprasLocalesAnualesGs / 1_000_000_000 * 0.16), empleo: Math.round(result.empleoIndirecto * 0.15), prioridad: 'media' },
+    { rubro: 'Servicios urbanos', montoMM: Math.round(result.comprasLocalesAnualesGs / 1_000_000_000 * 0.14), empleo: Math.round(result.empleoInducido * 0.32), prioridad: 'media' },
+    { rubro: 'Alimentos y alojamiento', montoMM: Math.round(result.comprasLocalesAnualesGs / 1_000_000_000 * 0.12), empleo: Math.round(result.empleoInducido * 0.26), prioridad: 'alta' },
+    { rubro: 'Servicios profesionales', montoMM: Math.round(result.comprasLocalesAnualesGs / 1_000_000_000 * 0.10), empleo: Math.round(result.empleoIndirecto * 0.08), prioridad: 'media' },
+  ], [result]);
 
-  const capturaChartData = [
-    { nombre: 'Local', valor: result.empleoLocal },
-    { nombre: 'Importado', valor: result.empleoImportado },
-  ];
+  const districtIntelligence = useMemo(() => result.distritos
+    .map((d: ImpactoDistrito) => {
+      const poblacion = districtPopulation(d.nombre);
+      const ruralPct = districtRuralPct(d.nombre);
+      const score = Math.min(100, Math.round(
+        d.presionViviendaIndice * 0.28 +
+        d.presionServiciosIndice * 0.25 +
+        (d.empleosLocalesEstimados / Math.max(1, poblacion)) * 2200 +
+        (d.nuevoResidentesEstimados / Math.max(1, poblacion)) * 1600 +
+        (ruralPct > 75 ? 8 : 0),
+      ));
+      return {
+        ...d,
+        poblacion,
+        ruralPct,
+        score,
+        cuposFormacion: Math.round(d.empleosLocalesEstimados * (100 - params.capturaLocal_pct) / 100 * 0.9 + d.empleosLocalesEstimados * 0.18),
+        proveedoresMeta: Math.max(1, Math.round(result.proveedoresLocalesEstimados * d.empleosLocalesEstimados / Math.max(1, result.empleoLocal))),
+      };
+    })
+    .sort((a, b) => b.score - a.score), [params.capturaLocal_pct, result]);
 
-  const topDistritosOportunidad = [...result.distritos]
-    .sort((a, b) => b.empleosLocalesEstimados - a.empleosLocalesEstimados)
-    .slice(0, 6);
+  const resumenKpis = useMemo(() => {
+    const empleoVsRef = (result.empleoTotal / PARACEL_FACTS.empleosDirectosIndirectosRef) * 100;
+    const produccionPorEmpleo = PARACEL_FACTS.produccionAnualTon / Math.max(1, result.empleoTotal);
+    const toneladasDia = PARACEL_FACTS.produccionAnualTon / 365;
+    const inversionPorEmpleoUsd = PARACEL_FACTS.inversionIndustrialUsd / Math.max(1, result.empleoTotal);
+    return {
+      empleoVsRef,
+      produccionPorEmpleo,
+      toneladasDia,
+      inversionPorEmpleoUsd,
+      cuposFormacion: brechas.find((b) => b.area === 'Formacion')?.brecha ?? 0,
+      brechaComprasMM: brechas.find((b) => b.area === 'Proveedores locales')?.brecha ?? 0,
+    };
+  }, [brechas, result.empleoTotal]);
 
   return (
-    <div className="view-container">
+    <div className="view-container impacto-report">
+      <div className="impacto-hero print-section">
+        <div>
+          <p className="eyebrow">Modelo territorial antes / durante / después</p>
+          <h2 className="view-title">
+            Impacto territorial PARACEL
+            <span className="view-subtitle"> - Escenario {ESCENARIO_LABELS[escenario].label}: {ESCENARIO_LABELS[escenario].desc}</span>
+          </h2>
+        </div>
+        <button className="secondary-button print-hide" type="button" onClick={() => window.print()}>
+          <Printer size={16} /> Imprimir / PDF
+        </button>
+      </div>
 
-      {/* Selector de escenario */}
-      <div className="dept-selector" style={{ flexWrap: 'wrap', gap: 8 }}>
+      <div className="dept-selector print-hide" style={{ flexWrap: 'wrap', gap: 8 }}>
         {(Object.keys(ESCENARIOS_PRESET) as EscenarioKey[]).map((k) => (
           <button
             key={k}
@@ -172,36 +428,37 @@ export default function ImpactoView() {
         ))}
       </div>
 
-      <h2 className="view-title">
-        Impacto territorial PARACEL
-        <span className="view-subtitle"> — Escenario {ESCENARIO_LABELS[escenario].label}: {ESCENARIO_LABELS[escenario].desc}</span>
-      </h2>
+      <div className="source-fact-grid print-section">
+        <FactCard icon={<Factory size={18} />} value="1,8 M t/año" label="capacidad anual de celulosa" source="Paracel" />
+        <FactCard icon={<Gauge size={18} />} value="220 MW" label="energia electrica asociada" source="Paracel" />
+        <FactCard icon={<Landmark size={18} />} value="USD 2,9 MM" label="inversión industrial reportada" source="Paracel" />
+        <FactCard icon={<Trees size={18} />} value="203.515 ha" label="tierras propias forestales" source="Paracel" />
+        <FactCard icon={<Users size={18} />} value="1.040" label="empleos directos actuales reportados" source="Paracel" />
+        <FactCard icon={<Truck size={18} />} value="~7.000" label="empleos directos e indirectos esperados" source="BID Invest" />
+      </div>
 
       <div className="impacto-layout">
-
-        {/* Panel de parámetros */}
-        <aside className="params-panel">
-          <h3 className="params-section-title">
-            <Factory size={15} /> Empleo
-          </h3>
+        <aside className="params-panel print-hide">
+          <h3 className="params-section-title"><Factory size={15} /> Empleo y cadena</h3>
           <SliderField label="Empleo directo (obra)" value={params.empleoDirectoObra}
             min={500} max={5000} step={100} unit=" pers."
             onChange={(v) => setParam('empleoDirectoObra', v)} />
           <SliderField label="Empleo directo (operación)" value={params.empleoDirectoOperacion}
-            min={200} max={3000} step={50} unit=" pers."
+            min={200} max={3000} step={20} unit=" pers."
             onChange={(v) => setParam('empleoDirectoOperacion', v)} />
           <SliderField label="Multiplicador indirecto" value={params.multiplicadorIndirecto}
-            min={1} max={5} step={0.1} unit="×"
-            hint="empleos indirectos por cada empleo directo"
+            min={1} max={6} step={0.1} unit="x"
+            hint="empleos indirectos por empleo directo"
             onChange={(v) => setParam('multiplicadorIndirecto', v)} />
+          <SliderField label="Empleo inducido por 1.000 M Gs." value={params.coeficienteInducido}
+            min={0.5} max={8} step={0.1} unit=""
+            hint="empleos por cada 1.000 M Gs. retenidos localmente"
+            onChange={(v) => setParam('coeficienteInducido', v)} />
           <SliderField label="Captura local" value={params.capturaLocal_pct}
             min={10} max={95} step={5} unit="%"
-            hint="% empleos capturados por mano de obra local"
             onChange={(v) => setParam('capturaLocal_pct', v)} />
 
-          <h3 className="params-section-title" style={{ marginTop: 20 }}>
-            <Users size={15} /> Migración
-          </h3>
+          <h3 className="params-section-title" style={{ marginTop: 20 }}><Users size={15} /> Migracion</h3>
           <SliderField label="Trabajadores no locales" value={params.pctNoLocales}
             min={5} max={90} step={5} unit="%"
             onChange={(v) => setParam('pctNoLocales', v)} />
@@ -212,9 +469,7 @@ export default function ImpactoView() {
             min={2} max={6} step={0.1} unit=" pers."
             onChange={(v) => setParam('tamanioHogarMigrante', v)} />
 
-          <h3 className="params-section-title" style={{ marginTop: 20 }}>
-            <Coins size={15} /> Economía local
-          </h3>
+          <h3 className="params-section-title" style={{ marginTop: 20 }}><Coins size={15} /> Economia local</h3>
           <SliderField label="Salario mensual" value={params.salarioMensualGs / 1_000_000}
             min={1} max={15} step={0.1} unit=" M Gs."
             onChange={(v) => setParam('salarioMensualGs', v * 1_000_000)} />
@@ -226,270 +481,264 @@ export default function ImpactoView() {
             hint="% del presupuesto de compras con proveedores locales"
             onChange={(v) => setParam('pctComprasLocales', v)} />
 
-          <h3 className="params-section-title" style={{ marginTop: 20 }}>
-            <TrendingUp size={15} /> Cronograma
-          </h3>
+          <h3 className="params-section-title" style={{ marginTop: 20 }}><Calendar size={15} /> Cronograma</h3>
           <SliderField label="Inicio de obra" value={params.anioInicioObra}
             min={2025} max={2030} step={1} unit=""
             onChange={(v) => setParam('anioInicioObra', v)} />
-          <SliderField label="Duración de obra" value={params.duracionObraAnios}
+          <SliderField label="Duracion de obra" value={params.duracionObraAnios}
             min={1} max={6} step={1} unit=" años"
             onChange={(v) => setParam('duracionObraAnios', v)} />
-
-          <p className="params-note">
-            Operación plena estimada: <strong>{result.anioOperacionPlena}</strong>
-          </p>
+          <p className="params-note">Operación plena estimada: <strong>{result.anioOperacionPlena}</strong></p>
         </aside>
 
-        {/* Panel de resultados */}
         <div className="results-panel">
-
-          {/* ── Cronograma e hitos clave ───────────────────────────────── */}
-          <div className="chart-card">
-            <h4 className="chart-title">
-              <Calendar size={14} style={{ marginRight: 6 }} />
-              Cronograma e hitos clave del proyecto PARACEL
-            </h4>
-            <div className="milestone-timeline">
-              {milestones.map((m, i) => (
-                <div key={i} className={`ms-item ms-${m.tipo}`}>
-                  <div className="ms-year">{m.anio}</div>
-                  <div className="ms-connector">
-                    {i > 0 && <div className="ms-line" />}
-                    <div className="ms-dot" />
-                    {i < milestones.length - 1 && <div className="ms-line" />}
-                  </div>
-                  <div className="ms-content">
-                    <div className="ms-label">{m.label}</div>
-                    <div className="ms-desc">{m.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="baseline-strip print-section">
+            <KPICard label="Poblacion base" value={FMT_N(baseline.poblacion)} sub="Concepcion + Amambay, Censo 2022" color="var(--emerald-600)" icon={<Users size={18} />} />
+            <KPICard label="Ruralidad regional" value={FMT_PCT(baseline.ruralPct)} sub="presión sobre conectividad y servicios" color="var(--blue-600)" icon={<Truck size={18} />} />
+            <KPICard label="Poblacion indigena" value={FMT_PCT(baseline.indigenaPct)} sub={`${FMT_N(totalPobIndigena)} personas`} color="var(--amber-600)" icon={<Trees size={18} />} />
+            <KPICard label="Pobreza estimada" value={FMT_PCT(baseline.pobrezaPct)} sub="promedio ponderado departamental" color="var(--red-600)" icon={<AlertTriangle size={18} />} />
+            <KPICard label="Sin seguro médico" value={FMT_PCT(baseline.sinSeguroPct)} sub="riesgo de presión sanitaria" color="var(--violet-600)" icon={<ShieldCheck size={18} />} />
+            <KPICard label="Sin agua potable" value={FMT_PCT(baseline.sinAguaPct)} sub="brecha de servicios basicos" color="var(--cyan-600)" icon={<Home size={18} />} />
           </div>
 
-          {/* ── Evolución temporal de indicadores ─────────────────────────── */}
-          <div className="charts-grid-2">
-            <div className="chart-card">
-              <h4 className="chart-title">Evolución del empleo por año</h4>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={evolutionData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
-                  <XAxis dataKey="anio" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} width={45} />
-                  <Tooltip formatter={(v: number, name: string) => [FMT_N(v), name]} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <ReferenceLine x={result.anioFinObra} stroke="#059669" strokeDasharray="4 3"
-                    label={{ value: 'Inicio op.', position: 'insideTopLeft', fontSize: 9, fill: '#047857' }} />
-                  <Line type="monotone" dataKey="empTotal" name="Empleo total" stroke="#059669" strokeWidth={2.5} dot={false} />
-                  <Line type="monotone" dataKey="empDir" name="Empleo directo" stroke="#2563eb" strokeWidth={1.5} strokeDasharray="5 3" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="chart-card">
-              <h4 className="chart-title">Ingreso local y nuevos residentes</h4>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={evolutionData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
-                  <XAxis dataKey="anio" tick={{ fontSize: 10 }} />
-                  <YAxis yAxisId="left" tick={{ fontSize: 10 }} width={45} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} width={45} />
-                  <Tooltip formatter={(v: number, name: string) =>
-                    name === 'Ingreso local (MM Gs.)' ? [FMT_N(v) + ' MM', name] : [FMT_N(v), name]
-                  } />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <ReferenceLine yAxisId="left" x={result.anioFinObra} stroke="#059669" strokeDasharray="4 3"
-                    label={{ value: 'Inicio op.', position: 'insideTopLeft', fontSize: 9, fill: '#047857' }} />
-                  <Line yAxisId="left" type="monotone" dataKey="ingresoMM" name="Ingreso local (MM Gs.)" stroke="#d97706" strokeWidth={2.5} dot={false} />
-                  <Line yAxisId="right" type="monotone" dataKey="residentes" name="Nuevos residentes" stroke="#7c3aed" strokeWidth={1.5} strokeDasharray="5 3" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* KPIs empleo */}
-          <div className="kpi-grid-4">
-            <KPICard
-              icon={<Factory size={18} />}
-              label="Empleo total estimado"
-              value={FMT_N(result.empleoTotal)}
-              sub={`Directo ${FMT_N(result.empleoDirectoTotal)} + Indirecto ${FMT_N(result.empleoIndirecto)} + Inducido ${FMT_N(result.empleoInducido)}`}
-              color="var(--emerald-600)"
-            />
-            <KPICard
-              icon={<Users size={18} />}
-              label="Empleo capturado localmente"
-              value={`${FMT_N(result.empleoLocal)} (${params.capturaLocal_pct}%)`}
-              sub={`${FMT_N(result.empleoImportado)} puestos cubiertos desde fuera`}
-              color="var(--blue-600)"
-            />
-            <KPICard
-              icon={<Building2 size={18} />}
-              label="Nuevos residentes estimados"
-              value={FMT_N(result.pobInducidaTotal)}
-              sub={`${FMT_N(result.hogaresAdicionalesTotal)} hogares adicionales requeridos`}
-              color="var(--violet-600)"
-            />
-            <KPICard
-              icon={<Coins size={18} />}
-              label="Ingreso local anual"
-              value={FMT_MRD(result.ingresoTotalLocalAnualGs) + ' Gs.'}
-              sub={`Masa salarial local + compras locales anuales`}
-              color="var(--amber-600)"
-            />
-          </div>
-
-          {/* Gráficos */}
-          <div className="charts-grid-2">
-            <div className="chart-card">
-              <h4 className="chart-title">Composición del empleo total</h4>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={empleoChartData} barSize={40}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
-                  <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number) => FMT_N(v)} />
-                  <Bar dataKey="valor" fill="var(--emerald-500)" radius={[6, 6, 0, 0]} name="Empleos" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="chart-card">
-              <h4 className="chart-title">Empleo local vs importado</h4>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={capturaChartData} barSize={50}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
-                  <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number) => FMT_N(v)} />
-                  <Bar dataKey="valor" radius={[6, 6, 0, 0]} name="Empleos"
-                    fill="var(--blue-600)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Economía local detalle */}
-          <div className="chart-card" style={{ marginBottom: 16 }}>
-            <h4 className="chart-title">Flujo económico local estimado (Gs. anuales)</h4>
-            <div className="econ-flow-grid">
-              <div className="econ-item">
-                <span className="econ-label">Masa salarial directa total</span>
-                <span className="econ-value">{FMT_MRD(result.masaSalarialAnualGs)}</span>
-              </div>
-              <div className="econ-item">
-                <span className="econ-label">Porción retenida localmente</span>
-                <span className="econ-value emerald">{FMT_MRD(result.ingresoLocalAnualGs)}</span>
-              </div>
-              <div className="econ-item">
-                <span className="econ-label">Compras locales anuales</span>
-                <span className="econ-value emerald">{FMT_MRD(result.comprasLocalesAnualesGs)}</span>
-              </div>
-              <div className="econ-item highlight">
-                <span className="econ-label">Ingreso total local estimado</span>
-                <span className="econ-value emerald bold">{FMT_MRD(result.ingresoTotalLocalAnualGs)}</span>
-              </div>
-              <div className="econ-item">
-                <span className="econ-label">Proveedores locales estimados</span>
-                <span className="econ-value">{FMT_N(result.proveedoresLocalesEstimados)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Presión territorial */}
-          <div className="chart-card" style={{ marginBottom: 16 }}>
-            <h4 className="chart-title"><AlertTriangle size={14} style={{ marginRight: 6 }} />Presión territorial global</h4>
-            <div className="pressure-bars">
-              <div className="pressure-item">
-                <span>Presión sobre vivienda</span>
-                <div className="pressure-track">
-                  <div className="pressure-fill" style={{ width: `${result.presionViviendaGlobal}%`,
-                    background: result.presionViviendaGlobal > 60 ? 'var(--red-600)' : result.presionViviendaGlobal > 30 ? 'var(--amber-600)' : 'var(--emerald-500)' }} />
-                </div>
-                <span className="pressure-val">{result.presionViviendaGlobal}/100</span>
-              </div>
-              <div className="pressure-item">
-                <span>Presión sobre servicios</span>
-                <div className="pressure-track">
-                  <div className="pressure-fill" style={{ width: `${result.presionServiciosGlobal}%`,
-                    background: result.presionServiciosGlobal > 60 ? 'var(--red-600)' : result.presionServiciosGlobal > 30 ? 'var(--amber-600)' : 'var(--emerald-500)' }} />
-                </div>
-                <span className="pressure-val">{result.presionServiciosGlobal}/100</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Top distritos por oportunidad */}
-          <div className="chart-card" style={{ marginBottom: 16 }}>
-            <h4 className="chart-title">Principales distritos por oportunidad laboral</h4>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={topDistritosOportunidad} layout="vertical" barSize={18} margin={{ left: 130 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="nombre" tick={{ fontSize: 11 }} width={125} />
-                <Tooltip formatter={(v: number) => [FMT_N(v), 'Empleos locales']} />
-                <Bar dataKey="empleosLocalesEstimados" fill="var(--emerald-500)" radius={[0, 6, 6, 0]} name="Empleos locales" />
-              </BarChart>
+          <div className="chart-card print-section">
+            <h4 className="chart-title">Sensores 2025-2026: oportunidades y presiones antes del shock PARACEL</h4>
+            <ResponsiveContainer width="100%" height={230}>
+              <ComposedChart data={CONTEXT_SIGNAL_INDEX} margin={{ top: 8, right: 12, left: 0, bottom: 34 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                <XAxis dataKey="dimension" tick={{ fontSize: 10 }} interval={0} angle={-22} textAnchor="end" />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(v: number, name: string) => [`${v}/100`, name === 'opportunity' ? 'Oportunidad' : name === 'pressure' ? 'Presión' : 'Índice']} />
+                <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v: string) => v === 'opportunity' ? 'Oportunidad' : v === 'pressure' ? 'Presión' : 'Índice'} />
+                <Bar dataKey="opportunity" fill="#059669" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="pressure" fill="#d97706" radius={[4, 4, 0, 0]} />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Tabla completa por distrito */}
-          <div className="chart-card">
-            <h4 className="chart-title">Desagregado por distrito</h4>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="distrito-table">
+          <div className="phase-grid print-section">
+            {faseData.map((fase) => (
+              <article key={fase.fase} className={`phase-card phase-${fase.fase.toLowerCase().replace(/\s+/g, '-')}`}>
+                <div className="phase-head">
+                  <span>{fase.fase}</span>
+                  <strong>{fase.periodo}</strong>
+                </div>
+                <div className="phase-metrics">
+                  <b>{FMT_N(fase.empleo)}</b><span>empleos totales</span>
+                  <b>{FMT_N(fase.residentes)}</b><span>residentes inducidos</span>
+                  <b>{FMT_N(fase.hogares)}</b><span>hogares adicionales</span>
+                  <b>{FMT_N(fase.ingresoMM)} MM</b><span>Gs. retenidos/año</span>
+                </div>
+                <div className="phase-pressure">
+                  <div style={{ width: `${fase.presion}%` }} />
+                </div>
+                <p>{fase.foco}</p>
+                <small>{fase.gestion}</small>
+              </article>
+            ))}
+          </div>
+
+          <div className="kpi-grid-4 print-section">
+            <KPICard icon={<Factory size={18} />} label="Empleo total estimado"
+              value={FMT_N(result.empleoTotal)}
+              sub={`${FMT_PCT(resumenKpis.empleoVsRef, 0)} de la referencia ~7.000 empleos`}
+              color="var(--emerald-600)" />
+            <KPICard icon={<Users size={18} />} label="Captura local directa"
+              value={`${FMT_N(result.empleoLocal)} (${params.capturaLocal_pct}%)`}
+              sub={`${FMT_N(result.empleoImportado)} puestos importados o por formar`}
+              color="var(--blue-600)" />
+            <KPICard icon={<GraduationCap size={18} />} label="Cupos tecnicos urgentes"
+              value={FMT_N(resumenKpis.cuposFormacion)}
+              sub="meta minima para reducir dependencia externa"
+              color="var(--violet-600)" />
+            <KPICard icon={<Building2 size={18} />} label="Vivienda adicional"
+              value={FMT_N(result.hogaresAdicionalesTotal)}
+              sub={`${FMT_N(result.pobInducidaTotal)} residentes inducidos`}
+              color="var(--amber-600)" />
+            <KPICard icon={<Coins size={18} />} label="Ingreso local anual"
+              value={`${FMT_MRD(result.ingresoTotalLocalAnualGs)} Gs.`}
+              sub="salarios retenidos + compras locales"
+              color="var(--emerald-600)" />
+            <KPICard icon={<Truck size={18} />} label="Produccion equivalente"
+              value={`${FMT_N(Math.round(resumenKpis.toneladasDia))} t/dia`}
+              sub={`${FMT_N(Math.round(resumenKpis.produccionPorEmpleo))} t/año por empleo total`}
+              color="var(--blue-600)" />
+            <KPICard icon={<Landmark size={18} />} label="Inversion por empleo"
+              value={`USD ${FMT_N(Math.round(resumenKpis.inversionPorEmpleoUsd))}`}
+              sub="inversión industrial / empleo total modelado"
+              color="var(--cyan-600)" />
+            <KPICard icon={<FileText size={18} />} label="Brecha compras locales"
+              value={`${FMT_N(resumenKpis.brechaComprasMM)} MM Gs.`}
+              sub="hasta meta de 60% de compras locales"
+              color="var(--red-600)" />
+          </div>
+
+          <div className="charts-grid-2 print-section">
+            <div className="chart-card">
+              <h4 className="chart-title">Antes, durante y después: empleo, residentes e ingreso</h4>
+              <ResponsiveContainer width="100%" height={260}>
+                <ComposedChart data={faseData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                  <XAxis dataKey="fase" tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(v: number, name: string) => [FMT_N(v), name]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar yAxisId="left" dataKey="empleo" name="Empleo total" fill="#059669" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="residentes" name="Residentes inducidos" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="ingresoMM" name="Ingreso local MM Gs." stroke="#d97706" strokeWidth={2.4} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="chart-card">
+              <h4 className="chart-title">Radar de tensiones y oportunidades por fase</h4>
+              <ResponsiveContainer width="100%" height={260}>
+                <RadarChart data={radarData}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 10 }} />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} />
+                  <Radar name="Antes" dataKey="Antes" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.14} />
+                  <Radar name="Durante" dataKey="Durante" stroke="#d97706" fill="#d97706" fillOpacity={0.18} />
+                  <Radar name="Despues" dataKey="Despues" stroke="#059669" fill="#059669" fillOpacity={0.2} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v: number) => `${v}/100`} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="charts-grid-2 print-section">
+            <div className="chart-card">
+              <h4 className="chart-title">Evolucion temporal: empleo e ingreso local</h4>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={evolutionData} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                  <XAxis dataKey="anio" tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(v: number, name: string) => [FMT_N(v), name]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <ReferenceLine yAxisId="left" x={result.anioFinObra} stroke="#059669" strokeDasharray="4 3" />
+                  <Line yAxisId="left" type="monotone" dataKey="empTotal" name="Empleo total" stroke="#059669" strokeWidth={2.4} dot={false} />
+                  <Line yAxisId="right" type="monotone" dataKey="ingresoMM" name="Ingreso local MM Gs." stroke="#d97706" strokeWidth={2.2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="chart-card">
+              <h4 className="chart-title">Cadena de valor: compras locales y empleo asociado</h4>
+              <ResponsiveContainer width="100%" height={240}>
+                <ComposedChart data={valueChainData} margin={{ top: 8, right: 12, bottom: 36, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                  <XAxis dataKey="rubro" tick={{ fontSize: 10 }} interval={0} angle={-25} textAnchor="end" />
+                  <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(v: number, name: string) => [FMT_N(v), name]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar yAxisId="left" dataKey="montoMM" name="Compras MM Gs." fill="#2563eb" radius={[4, 4, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="empleo" name="Empleo asociado" stroke="#059669" strokeWidth={2.4} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="chart-card print-section">
+            <h4 className="chart-title">Matriz de brechas de gestion</h4>
+            <div className="impact-table-wrap">
+              <table className="impact-table">
                 <thead>
                   <tr>
-                    <th>Distrito</th>
-                    <th>Depto.</th>
-                    <th>Empleos locales</th>
-                    <th>Nuevos residentes</th>
-                    <th>Hogares adicionales</th>
-                    <th>Presión vivienda</th>
-                    <th>Presión servicios</th>
-                    <th>Oportunidad</th>
-                    <th>Vulnerabilidad</th>
+                    <th>Área crítica</th>
+                    <th>Actual / estimado</th>
+                    <th>Meta inteligente</th>
+                    <th>Brecha</th>
+                    <th>Decision sugerida</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {result.distritos
-                    .slice()
-                    .sort((a, b) => b.empleosLocalesEstimados - a.empleosLocalesEstimados)
-                    .map((d: ImpactoDistrito) => (
-                      <tr key={`${d.departamento}-${d.nombre}`}>
-                        <td className="td-nombre">{d.nombre}</td>
-                        <td className="td-depto">{d.departamento}</td>
-                        <td className="td-num">{FMT_N(d.empleosLocalesEstimados)}</td>
-                        <td className="td-num">{FMT_N(d.nuevoResidentesEstimados)}</td>
-                        <td className="td-num">{FMT_N(d.hogaresAdicionalesRequeridos)}</td>
-                        <td className="td-num">
-                          <span style={{ color: d.presionViviendaIndice > 60 ? 'var(--red-600)' : d.presionViviendaIndice > 30 ? 'var(--amber-600)' : 'var(--emerald-600)' }}>
-                            {d.presionViviendaIndice}
-                          </span>
-                        </td>
-                        <td className="td-num">
-                          <span style={{ color: d.presionServiciosIndice > 60 ? 'var(--red-600)' : d.presionServiciosIndice > 30 ? 'var(--amber-600)' : 'var(--emerald-600)' }}>
-                            {d.presionServiciosIndice}
-                          </span>
-                        </td>
-                        <td><RiskBadge nivel={d.oportunidadLaboral} /></td>
-                        <td><RiskBadge nivel={d.vulnerabilidadDesplazamiento} /></td>
-                      </tr>
-                    ))}
+                  {brechas.map((b) => (
+                    <tr key={b.area}>
+                      <td className="td-nombre">{b.area}</td>
+                      <td className="td-num">{FMT_N(b.actual)}</td>
+                      <td className="td-num">{FMT_N(b.meta)}</td>
+                      <td className="td-num">{FMT_N(b.brecha)}</td>
+                      <td>{b.decision}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Nota metodológica */}
-          <div className="metodologia-note">
-            <strong>Nota metodológica:</strong> Los resultados son estimaciones con supuestos explícitos.
-            Empleo indirecto calculado con multiplicador de Leontief adaptado a escala departamental.
-            Presión territorial índice relativo a población 2022 (Censo INE).
-            Distribución distrital proporcional a PEA estimada y urbanización.
-            Los supuestos deben contrastarse con datos reales de PARACEL cuando estén disponibles.
+          <div className="chart-card print-section">
+            <h4 className="chart-title">Ranking distrital inteligente: oportunidad + presión</h4>
+            <div className="impact-table-wrap">
+              <table className="distrito-table">
+                <thead>
+                  <tr>
+                    <th>Distrito</th>
+                    <th>Depto.</th>
+                    <th>Poblacion base</th>
+                    <th>Ruralidad</th>
+                    <th>Empleos locales</th>
+                    <th>Residentes inducidos</th>
+                    <th>Hogares</th>
+                    <th>Presion vivienda</th>
+                    <th>Presion servicios</th>
+                    <th>Cupos formación</th>
+                    <th>Proveedores meta</th>
+                    <th>Prioridad</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {districtIntelligence.map((d) => (
+                    <tr key={`${d.departamento}-${d.nombre}`}>
+                      <td className="td-nombre">{d.nombre}</td>
+                      <td className="td-depto">{d.departamento}</td>
+                      <td className="td-num">{FMT_N(d.poblacion)}</td>
+                      <td className="td-num">{FMT_PCT(d.ruralPct, 0)}</td>
+                      <td className="td-num">{FMT_N(d.empleosLocalesEstimados)}</td>
+                      <td className="td-num">{FMT_N(d.nuevoResidentesEstimados)}</td>
+                      <td className="td-num">{FMT_N(d.hogaresAdicionalesRequeridos)}</td>
+                      <td className="td-num"><RiskBadge nivel={d.vulnerabilidadDesplazamiento} /></td>
+                      <td className="td-num">{d.presionServiciosIndice}/100</td>
+                      <td className="td-num">{FMT_N(d.cuposFormacion)}</td>
+                      <td className="td-num">{FMT_N(d.proveedoresMeta)}</td>
+                      <td><PriorityBadge score={d.score} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
+          <div className="chart-card print-section">
+            <h4 className="chart-title">Lectura ejecutiva</h4>
+            <div className="executive-grid">
+              <div>
+                <strong>Antes</strong>
+                <p>La región parte de una base rural alta, pobreza significativa, fuerte presencia indígena y brechas de salud/agua. La decisión inteligente es preparar capacidades antes del pico de obra.</p>
+              </div>
+              <div>
+                <strong>Durante</strong>
+                <p>La obra concentra el mayor riesgo de tension: alojamiento, alquileres, movilidad, seguridad vial, demanda sanitaria y precios locales. Esta fase requiere monitoreo mensual.</p>
+              </div>
+              <div>
+                <strong>Despues</strong>
+                <p>La operación plena cambia el eje: empleo estable, proveedores, logística, servicios técnicos y retención salarial. El impacto positivo depende de elevar captura local y compras regionales.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="metodologia-note print-section">
+            <strong>Fuentes y trazabilidad:</strong> magnitudes públicas tomadas de Paracel, BID Invest y Agencia IP. Los cálculos son simulaciones con supuestos editables; deben actualizarse cuando PARACEL entregue dotación por categoría, cronograma contractual, salarios, compras, rutas logísticas y localización de alojamientos.
+            <div className="source-links print-hide">
+              <a href="https://www.paracel.com.py/" target="_blank" rel="noreferrer">Paracel</a>
+              <a href="https://idbinvest.org/en/news-media/idb-invest-supports-paracel-largest-private-investment-paraguays-history-develop-countrys" target="_blank" rel="noreferrer">BID Invest</a>
+              <a href="https://www.ip.gov.py/ip/2025/04/09/paracel-finaliza-movimiento-de-suelo-para-futura-planta-de-celulosa-en-concepcion/" target="_blank" rel="noreferrer">Agencia IP</a>
+            </div>
+          </div>
         </div>
       </div>
     </div>

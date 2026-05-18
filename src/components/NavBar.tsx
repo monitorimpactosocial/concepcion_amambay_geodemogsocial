@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { BarChart2, Download, Loader, Map, TrendingUp, HeartPulse, Factory, FlaskConical } from 'lucide-react';
+import { BarChart2, Download, FileText, Loader, Map, TrendingUp, HeartPulse, Factory, FlaskConical } from 'lucide-react';
 import type { ViewId } from '../types';
 import { generateExcel } from './ExportPanel';
 
@@ -15,6 +15,7 @@ const TABS: { id: ViewId; label: string; icon: ReactNode }[] = [
   { id: 'proyecciones',label: 'Proyecciones',      icon: <TrendingUp size={16} /> },
   { id: 'social',      label: 'Indicadores Sociales', icon: <HeartPulse size={16} /> },
   { id: 'impacto',     label: 'Impacto PARACEL',   icon: <Factory size={16} /> },
+  { id: 'reporte',     label: 'Reporte PDF',        icon: <FileText size={16} /> },
   { id: 'metodologia', label: 'Metodología',        icon: <FlaskConical size={16} /> },
 ];
 

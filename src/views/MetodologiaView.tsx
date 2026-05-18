@@ -332,6 +332,40 @@ function SeccionImpacto() {
         <Nota>Los resultados son estimaciones con supuestos explícitos. Deben contrastarse con datos reales de PARACEL cuando estén disponibles. No constituyen proyecciones oficiales.</Nota>
       </Section>
 
+      <Section title="Magnitudes públicas usadas para calibrar la versión 2">
+        <Tabla
+          headers={['Magnitud', 'Valor usado', 'Uso en el tablero']}
+          rows={[
+            ['Producción anual de celulosa', '1.800.000 t/año', 'Escala productiva y lectura de presión logística'],
+            ['Generación eléctrica', '220 MW', 'Referencia de infraestructura industrial'],
+            ['Tierras propias', '203.515 ha', 'Base forestal territorial'],
+            ['Superficie plantada reportada', '82.471 ha', 'Madurez de abastecimiento forestal'],
+            ['Empleos directos actuales', '1.040', 'Preset medio de operación plena'],
+            ['Empleos directos + indirectos esperados', '7.000', 'Ancla para el multiplicador de encadenamiento'],
+            ['Empleos de movimiento de suelo', '1.800 directos / 7.200 totales', 'Fase durante obra y presión temporal'],
+            ['Movimiento de suelo culminado', '6.000.000 m³', 'Hito físico de avance de obra'],
+            ['Alojamiento C9', 'más de 2.000 personas', 'Referencia de demanda habitacional temporal'],
+          ]}
+        />
+        <Nota>Las magnitudes provienen de fuentes públicas de Paracel, BID Invest y Agencia IP consultadas en mayo de 2026. En la app se usan como anclas de orden de magnitud, no como promesa contractual.</Nota>
+      </Section>
+
+      <Section title="Actualización 2025-2026 incorporada como señales tempranas">
+        <Tabla
+          headers={['Dimensión', 'Indicadores guía', 'Uso analítico']}
+          rows={[
+            ['Macro y demanda', 'PIB 2025/2026, recaudación, materiales de construcción, cemento y combustible', 'Anticipa demanda de insumos, servicios y presión logística.'],
+            ['Formalización y proveedores', 'Contribuyentes activos, empresas, MIPYMES y composición comercio/servicios', 'Mide capacidad local para capturar compras y tercerizaciones.'],
+            ['Construcción y suelo', 'Permisos de construcción, ventas de inmuebles y valor fiscal de tierra', 'Alerta sobre presión habitacional, alquileres y suelo urbano.'],
+            ['Forestal e industria', 'Plantaciones forestales, cobertura forestal, precios de madera y empleo forestal', 'Conecta PARACEL con empleo rural, logística y cadena forestal.'],
+            ['Salud y protección', 'Seguro médico, atenciones públicas, nacimientos, defunciones y esperanza de vida', 'Permite estimar presión sobre red pública durante obra y migración inducida.'],
+            ['Educación y habilidades', 'Matrícula rural, plantel docente, desempeño matemático y deserción', 'Identifica brechas para formación técnica y captura local de empleo.'],
+            ['Mercado laboral', 'Edad activa, ocupación, desocupación y subocupación', 'Define si la región absorbe empleos o importará mano de obra.'],
+          ]}
+        />
+        <Nota>La matriz 2025-2026 fue incorporada como insumo operativo de monitoreo. Hasta contar con fichas documentales completas, sus fuentes se muestran como fuente declarada por indicador.</Nota>
+      </Section>
+
       <Section title="Parámetros del modelo (13 editables)">
         <Tabla
           headers={['Parámetro', 'Símbolo', 'Descripción', 'Rango típico']}
@@ -339,7 +373,7 @@ function SeccionImpacto() {
             ['Empleo directo obra', 'E_d_obra', 'Pico de empleo directo en fase constructiva', '500–5 000 pers.'],
             ['Empleo directo operación', 'E_d_op', 'Empleos directos permanentes en operación plena', '200–3 000 pers.'],
             ['Multiplicador indirecto', 'm_ind', 'Empleos indirectos por cada empleo directo (cadena de proveedores)', '1.0–5.0×'],
-            ['Coef. empleo inducido', 'c_ind', 'Empleos inducidos por cada 1 000 M Gs. de masa salarial local', '0.1–0.4'],
+            ['Coef. empleo inducido', 'c_ind', 'Empleos inducidos por cada 1 000 M Gs. de masa salarial local', '1.0–6.0'],
             ['Captura local', 'c_local', '% de empleos cubiertos por mano de obra residente en la región', '10–95%'],
             ['% no locales', 'p_ext', '% de trabajadores provenientes de fuera de Concepción/Amambay', '5–90%'],
             ['Traen familia', 'p_fam', '% de no locales que reubican su grupo familiar', '0–80%'],
@@ -359,7 +393,7 @@ E_indirecto  = E_d_op × m_ind
 E_local      = E_d_op × c_local / 100
 MS_anual     = E_d_op × w × 12                          // Masa salarial total
 MS_local     = MS_anual × r_local / 100                  // Masa salarial retenida
-E_inducido   = (MS_local / 1e9) × c_ind × 1000           // (por 1 000 M Gs.)
+E_inducido   = (MS_local / 1e9) × c_ind                  // c_ind por 1 000 M Gs.
 E_total      = E_d_op + E_indirecto + E_inducido
 
 // Migración
@@ -379,10 +413,10 @@ Proveedores  ≈ Compras_loc / 8_000_000                   // (1 empresa ≈ 8 M
         <Tabla
           headers={['Parámetro clave', 'Conservador', 'Medio', 'Transformador']}
           rows={[
-            ['Empleo directo operación', '800', '1 000', '1 200'],
-            ['Multiplicador indirecto', '1.8×', '2.5×', '3.5×'],
+            ['Empleo directo operación', '900', '1 040', '1 300'],
+            ['Multiplicador indirecto', '2.6×', '4.0×', '5.0×'],
             ['Captura local', '35%', '55%', '75%'],
-            ['Coef. empleo inducido', '0.12', '0.22', '0.38'],
+            ['Coef. empleo inducido', '1.4', '3.0', '5.5'],
             ['% no locales', '65%', '45%', '25%'],
             ['Gasto local del salario', '40%', '55%', '70%'],
             ['% compras locales', '15%', '30%', '50%'],

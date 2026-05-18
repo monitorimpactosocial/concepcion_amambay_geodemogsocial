@@ -1,6 +1,6 @@
 import type { GeoJsonObject } from 'geojson';
 
-export type ViewId = 'mapa' | 'demografia' | 'proyecciones' | 'social';
+export type ViewId = 'mapa' | 'demografia' | 'proyecciones' | 'social' | 'impacto';
 
 export type DepartmentCode = '01' | '13' | null;
 export type BasemapKey = 'light' | 'dark' | 'satellite';

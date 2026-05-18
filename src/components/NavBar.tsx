@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BarChart2, Map, TrendingUp, HeartPulse } from 'lucide-react';
+import { BarChart2, Map, TrendingUp, HeartPulse, Factory } from 'lucide-react';
 import type { ViewId } from '../types';
 
 interface NavBarProps {
@@ -12,6 +12,7 @@ const TABS: { id: ViewId; label: string; icon: ReactNode }[] = [
   { id: 'demografia',  label: 'Demografía',        icon: <BarChart2 size={16} /> },
   { id: 'proyecciones',label: 'Proyecciones',      icon: <TrendingUp size={16} /> },
   { id: 'social',      label: 'Indicadores Sociales', icon: <HeartPulse size={16} /> },
+  { id: 'impacto',     label: 'Impacto PARACEL',   icon: <Factory size={16} /> },
 ];
 
 export default function NavBar({ activeView, onViewChange }: NavBarProps) {

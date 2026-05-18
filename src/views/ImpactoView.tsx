@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
+  CartesianGrid, ResponsiveContainer, Legend, ReferenceLine,
 } from 'recharts';
-import { Factory, Users, Building2, Coins, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Factory, Users, Building2, Coins, TrendingUp, AlertTriangle, Calendar } from 'lucide-react';
 import KPICard from '../components/charts/KPICard';
 import {
   computeImpacto,
@@ -86,6 +87,59 @@ export default function ImpactoView() {
   };
 
   const result = useMemo(() => computeImpacto(params), [params]);
+
+  // ── Evolución temporal año a año ──────────────────────────────────────────
+  const evolutionData = useMemo(() => {
+    const startYr = params.anioInicioObra;
+    const obraEnd = result.anioFinObra;
+    const rows: { anio: number; empTotal: number; empDir: number; ingresoMM: number; residentes: number }[] = [];
+
+    for (let yr = startYr - 1; yr <= result.anioOperacionPlena + 5; yr++) {
+      let empDir = 0, empTotal = 0, ingresoMM = 0, residentes = 0;
+
+      if (yr < startYr) {
+        empDir = Math.round(params.empleoDirectoObra * 0.06);
+        empTotal = Math.round(params.empleoDirectoObra * 0.09);
+      } else if (yr < obraEnd) {
+        const n = Math.max(1, obraEnd - startYr);
+        const t = yr - startYr;
+        const ramp = n === 1 ? 1 : (t === 0 ? 0.55 : t === n - 1 ? 0.82 : 1.0);
+        empDir = Math.round(params.empleoDirectoObra * ramp);
+        empTotal = Math.round(empDir * (1 + params.multiplicadorIndirecto));
+        const msLocal = empDir * params.salarioMensualGs * 12
+          * (params.capturaLocal_pct / 100) * (params.proporcionResidenteLocal_pct / 100);
+        ingresoMM = Math.round(msLocal / 1_000_000_000);
+        residentes = Math.round(result.pobInducidaTotal * ramp * 0.4);
+      } else {
+        const opT = yr - obraEnd;
+        const mat = Math.min(1.0, 0.45 + opT * 0.18);
+        empDir = Math.round(result.empleoDirectoTotal * mat);
+        empTotal = Math.round(result.empleoTotal * mat);
+        ingresoMM = Math.round(result.ingresoTotalLocalAnualGs / 1_000_000_000 * mat);
+        residentes = Math.round(result.pobInducidaTotal * Math.min(1.0, 0.55 + opT * 0.15));
+      }
+      rows.push({ anio: yr, empDir, empTotal, ingresoMM, residentes });
+    }
+    return rows;
+  }, [params, result]);
+
+  // ── Hitos del proyecto ────────────────────────────────────────────────────
+  const milestones = useMemo(() => {
+    const items: { anio: number; label: string; desc: string; tipo: 'prep'|'clave'|'normal'|'hito' }[] = [
+      { anio: params.anioInicioObra - 1, label: 'Gestión y permisos', desc: 'EIA, licencias ambientales, negociaciones territoriales', tipo: 'prep' },
+      { anio: params.anioInicioObra, label: 'Inicio de obra civil', desc: `Inicio de construcción. Pico de empleo: ${FMT_N(params.empleoDirectoObra)} pers.`, tipo: 'clave' },
+      { anio: params.anioInicioObra + 1, label: 'Instalación de equipamiento', desc: 'Montaje de maquinaria industrial y pruebas técnicas', tipo: 'normal' },
+    ];
+    if (params.duracionObraAnios > 2) {
+      items.push({ anio: result.anioFinObra - 1, label: 'Puesta en marcha', desc: 'Comisioning y ajuste de procesos productivos', tipo: 'normal' });
+    }
+    items.push(
+      { anio: result.anioFinObra, label: 'Inicio de producción', desc: `Primer producto. Empleo permanente: ${FMT_N(params.empleoDirectoOperacion)} pers.`, tipo: 'clave' },
+      { anio: result.anioOperacionPlena, label: 'Plena capacidad operativa', desc: `Ingreso local est.: ${FMT_MRD(result.ingresoTotalLocalAnualGs)} Gs/año`, tipo: 'hito' },
+      { anio: result.anioOperacionPlena + 3, label: 'Consolidación proveedores', desc: `~${FMT_N(result.proveedoresLocalesEstimados)} proveedores locales integrados`, tipo: 'normal' },
+    );
+    return items;
+  }, [params, result]);
 
   const empleoChartData = [
     { nombre: 'Directo', valor: result.empleoDirectoTotal },
@@ -220,6 +274,69 @@ export default function ImpactoView() {
               sub={`Masa salarial local + compras locales anuales`}
               color="var(--amber-600)"
             />
+          </div>
+
+          {/* ── Cronograma e hitos clave ───────────────────────────────── */}
+          <div className="chart-card" style={{ marginBottom: 16 }}>
+            <h4 className="chart-title">
+              <Calendar size={14} style={{ marginRight: 6 }} />
+              Cronograma e hitos clave del proyecto PARACEL
+            </h4>
+            <div className="milestone-timeline">
+              {milestones.map((m, i) => (
+                <div key={i} className={`ms-item ms-${m.tipo}`}>
+                  <div className="ms-year">{m.anio}</div>
+                  <div className="ms-connector">
+                    {i > 0 && <div className="ms-line" />}
+                    <div className="ms-dot" />
+                    {i < milestones.length - 1 && <div className="ms-line" />}
+                  </div>
+                  <div className="ms-content">
+                    <div className="ms-label">{m.label}</div>
+                    <div className="ms-desc">{m.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Evolución temporal de indicadores ─────────────────────────── */}
+          <div className="charts-grid-2" style={{ marginBottom: 16 }}>
+            <div className="chart-card">
+              <h4 className="chart-title">Evolución del empleo por año</h4>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={evolutionData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                  <XAxis dataKey="anio" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} width={45} />
+                  <Tooltip formatter={(v: number, name: string) => [FMT_N(v), name]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <ReferenceLine x={result.anioFinObra} stroke="#059669" strokeDasharray="4 3"
+                    label={{ value: 'Inicio op.', position: 'insideTopLeft', fontSize: 9, fill: '#047857' }} />
+                  <Line type="monotone" dataKey="empTotal" name="Empleo total" stroke="#059669" strokeWidth={2.5} dot={false} />
+                  <Line type="monotone" dataKey="empDir" name="Empleo directo" stroke="#2563eb" strokeWidth={1.5} strokeDasharray="5 3" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="chart-card">
+              <h4 className="chart-title">Ingreso local y nuevos residentes</h4>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={evolutionData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                  <XAxis dataKey="anio" tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 10 }} width={45} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} width={45} />
+                  <Tooltip formatter={(v: number, name: string) =>
+                    name === 'Ingreso local (MM Gs.)' ? [FMT_N(v) + ' MM', name] : [FMT_N(v), name]
+                  } />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <ReferenceLine yAxisId="left" x={result.anioFinObra} stroke="#059669" strokeDasharray="4 3"
+                    label={{ value: 'Inicio op.', position: 'insideTopLeft', fontSize: 9, fill: '#047857' }} />
+                  <Line yAxisId="left" type="monotone" dataKey="ingresoMM" name="Ingreso local (MM Gs.)" stroke="#d97706" strokeWidth={2.5} dot={false} />
+                  <Line yAxisId="right" type="monotone" dataKey="residentes" name="Nuevos residentes" stroke="#7c3aed" strokeWidth={1.5} strokeDasharray="5 3" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Gráficos */}

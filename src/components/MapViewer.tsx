@@ -331,10 +331,12 @@ export default function MapViewer({
             style={(feature) => {
               const baseStyle = getBasePolygonStyle(feature as Feature);
               const isSelected = featureMatchesDistrict(feature as Feature, selectedDistrictKey);
+              const filtered = activeDepartment !== null && !selectedDistrictKey;
               return {
                 ...baseStyle,
-                weight: isSelected ? 2.5 : baseStyle.weight,
-                fillOpacity: isSelected ? 0.45 : baseStyle.fillOpacity,
+                weight: isSelected ? 2.5 : filtered ? 1.8 : baseStyle.weight,
+                fillOpacity: isSelected ? 0.55 : filtered ? 0.42 : baseStyle.fillOpacity,
+                opacity: isSelected ? 1 : filtered ? 1 : baseStyle.opacity,
               };
             }}
             onEachFeature={(feature, layer) => {

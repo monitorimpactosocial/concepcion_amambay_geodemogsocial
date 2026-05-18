@@ -45,6 +45,38 @@ const FMT_MRD = (n: number) => (n / 1_000_000_000).toLocaleString('es-PY', { max
 const FMT_N = (n: number) => Math.round(n).toLocaleString('es-PY');
 const FMT_PCT = (n: number, digits = 1) => `${n.toFixed(digits)}%`;
 
+type TimelineTooltipPayload = {
+  dataKey?: string | number;
+  name?: string | number;
+};
+
+function formatImpactTimelineTooltip(
+  value: unknown,
+  name: unknown,
+  item?: TimelineTooltipPayload,
+): [string, string] {
+  const key = String(item?.dataKey ?? name);
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  const formattedValue = Number.isFinite(numericValue) ? FMT_N(numericValue) : String(value ?? '');
+
+  switch (key) {
+    case 'empleoObservado':
+    case 'Empleo observado':
+      return [formattedValue, 'Empleo observado/reportado'];
+    case 'empleoEsperado':
+    case 'Empleo esperado':
+      return [formattedValue, 'Empleo esperado'];
+    case 'residentesEsperados':
+    case 'Residentes esperados':
+      return [formattedValue, 'Residentes esperados'];
+    case 'ingresoEsperadoMM':
+    case 'Ingreso esperado MM Gs.':
+      return [`${formattedValue} MM Gs.`, 'Ingreso esperado'];
+    default:
+      return [formattedValue, String(name ?? key)];
+  }
+}
+
 const PARACEL_FACTS = {
   produccionAnualTon: 1_800_000,
   energiaMW: 220,
@@ -657,16 +689,7 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                 <XAxis dataKey="anio" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number, name: string) => [
-                  FMT_N(v),
-                  name === 'empleoObservado'
-                    ? 'Empleo observado/reportado'
-                    : name === 'empleoEsperado'
-                      ? 'Empleo esperado'
-                      : name === 'residentesEsperados'
-                        ? 'Residentes esperados'
-                        : 'Ingreso esperado MM Gs.',
-                ]} />
+                <Tooltip formatter={formatImpactTimelineTooltip} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 {PARACEL_MILESTONES.map((milestone) => (
                   <ReferenceLine

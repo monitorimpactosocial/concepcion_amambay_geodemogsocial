@@ -1,5 +1,17 @@
 ﻿# Bitacora operativa
 
+## 2026-05-18 - Correccion de tooltip en serie PARACEL
+
+### Diagnostico atendido
+
+- En la figura "Serie PARACEL: observado reciente vs impacto esperado", el tooltip mostraba varias series como `Ingreso esperado MM Gs.`.
+- La causa era que el `formatter` comparaba contra `dataKey`, pero Recharts entregaba el nombre visible de la serie en algunos casos.
+
+### Cambios aplicados
+
+- `src/views/ImpactoView.tsx`: se agrego un formateador dedicado que reconoce `empleoObservado`, `empleoEsperado`, `residentesEsperados` e `ingresoEsperadoMM`.
+- El valor de ingreso ahora muestra unidad `MM Gs.`, mientras empleo y residentes quedan como conteos.
+
 ## 2026-05-18 - Hotfix de pantalla en blanco por estado local antiguo
 
 ### Diagnostico atendido

@@ -1,5 +1,79 @@
 # Bitacora operativa
 
+## 2026-05-18 - Auditoria de situacion actual, bitacora y ultimos commits
+
+### Contexto de la revision
+
+- Pedido: estudiar la situacion actual del proyecto, la ultima bitacora y los ultimos commits.
+- Repositorio operativo local en Drive: `G:\Mi unidad\CONCEPCION_AMAMBAY_GEODEMOGSOCIAL\concepcion_amambay_geodemogsocial`.
+- Clon limpio usado para Git confiable: `C:\tmp\concepcion_amambay_geodemogsocial_fix_20260518`.
+- App publicada: `https://monitorimpactosocial.github.io/concepcion_amambay_geodemogsocial/`.
+
+### Estado Git y deploy
+
+- El Git del repo local en Drive sigue no confiable: `git status` y `git log` fallan con `fatal: bad object HEAD`.
+- El clon limpio fue actualizado con fast-forward a `origin/main`.
+- Punta remota actual de `main`: `10dc0f7122ad955aed437b41ec9360035f21465d`.
+- Punta remota actual de `gh-pages`: `e165ceb96e80f488978f70627ddb6cec25f41404`.
+- Workflow `Deploy to GitHub Pages` para `10dc0f7`: `success`.
+- Workflow `pages build and deployment` para `e165ceb`: `success`.
+
+### Ultimos commits relevantes
+
+- `10dc0f7` - `fix(impacto): mover cronograma y lineas de evolucion al tope del panel`.
+- `371dff4` - agrega cronograma de hitos, lineas de evolucion temporal y corrige coloreado al filtrar departamento.
+- `1582eaf` - mueve `ExportPanel` al `NavBar`, quita Generador de Muestra del mapa, corrige filtro Concepcion y coropleta de hogares.
+- `7e11bf4` - agrega tab `Metodologia` con fuentes, metodos, formulas y supuestos.
+- `49842a2` - agrega modulo de simulacion `Impacto PARACEL`.
+- `189031d`, `e9c018f`, `7a71dc8` - cierre de deploy LFS/Pages y bitacora.
+
+### Estado funcional publicado
+
+- HTML de la app responde `HTTP 200`.
+- Asset publicado actual: `assets/index-CTSoSYp9.js`.
+- El bundle publicado contiene `Impacto PARACEL`, `Metodologia` y `Cronograma`.
+- El bundle publicado no contiene todavia funcionalidad de `PDF`, `pdf` o `imprimir`.
+- Verificacion viva de recursos chicos/criticos:
+  - `concepcion_amambay_hogares.geojson`: 2.87 MB, GeoJSON real, no puntero LFS.
+  - `concepcion_amambay_rutas.geojson`: 0.55 MB, GeoJSON real, no puntero LFS.
+  - `data/marco_muestral_viviendas.json`: 1.18 MB, JSON real, no puntero LFS.
+
+### Verificacion local en clon limpio
+
+- `npm run check`: exitoso.
+- `npm run typecheck`: exitoso dentro del check.
+- `npm run build`: exitoso dentro del check.
+- Advertencia residual: Vite reporta chunks mayores a 500 kB; no bloquea build, pero conviene optimizar luego con code-splitting.
+
+### Lectura de situacion
+
+- El proyecto ya no esta en el punto critico de LFS roto: la publicacion de datos web reales esta funcionando.
+- La app ya incorporo el modulo `Impacto PARACEL` y la pestana `Metodologia`.
+- La prioridad funcional nueva es implementar la capacidad solicitada de imprimir/generar un reporte PDF completo y detallado de la situacion socioeconomica historica, actual y proyectada de Concepcion y Amambay.
+- Para trabajar con seguridad en codigo y commits, conviene seguir usando el clon limpio o reconstruir el repo local de Drive, porque el Git local sigue corrupto.
+
+## 2026-05-18 - Vista Impacto PARACEL y tab Metodologia
+
+### Verificaciones previas
+
+- Deploy del 18/05 (11:58 UTC) confirmado en success; todos los GeoJSON sirven contenido real (no punteros LFS).
+- `uso_de_suelo_concepcion.geojson` en Pages: 93.49 MiB (98 MB decimal), dentro del limite de 95 MiB del script.
+
+### Implementacion Vista Impacto PARACEL
+
+- `src/data/impactoEngine.ts`: motor Leontief departamental, 3 escenarios preset, 13 parametros, desagregado por 15 distritos.
+- `src/views/ImpactoView.tsx`: selector de escenario, sliders interactivos, KPIs, graficos de barra, flujo economico, barras de presion territorial, tabla por distrito con badges de oportunidad/vulnerabilidad.
+- `src/types.ts`: ViewId incluye 'impacto'.
+- `src/components/NavBar.tsx`: tab 'Impacto PARACEL' (icono Factory).
+- `src/App.tsx`: renderiza ImpactoView.
+- `src/index.css`: estilos de layout, params-panel, kpi-grid-4, pressure-bars, distrito-table, risk-badge.
+- Errores TS corregidos antes del push: import Legend no usado, empleoDirectoObra no leido, prop label vs title en KPICard, discrepancia de version App.tsx remoto/local.
+- Commit: `49842a2` — Deploy Actions termino en success.
+
+### Pendiente
+
+- Tab Metodologia: documentacion completa de fuentes, procesos, definiciones, formulas y supuestos.
+
 ## 2026-05-18 - Estudio del repositorio y app publicada
 
 ### Alcance

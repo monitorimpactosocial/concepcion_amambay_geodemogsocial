@@ -244,40 +244,8 @@ export default function ImpactoView() {
         {/* Panel de resultados */}
         <div className="results-panel">
 
-          {/* KPIs empleo */}
-          <div className="kpi-grid-4">
-            <KPICard
-              icon={<Factory size={18} />}
-              label="Empleo total estimado"
-              value={FMT_N(result.empleoTotal)}
-              sub={`Directo ${FMT_N(result.empleoDirectoTotal)} + Indirecto ${FMT_N(result.empleoIndirecto)} + Inducido ${FMT_N(result.empleoInducido)}`}
-              color="var(--emerald-600)"
-            />
-            <KPICard
-              icon={<Users size={18} />}
-              label="Empleo capturado localmente"
-              value={`${FMT_N(result.empleoLocal)} (${params.capturaLocal_pct}%)`}
-              sub={`${FMT_N(result.empleoImportado)} puestos cubiertos desde fuera`}
-              color="var(--blue-600)"
-            />
-            <KPICard
-              icon={<Building2 size={18} />}
-              label="Nuevos residentes estimados"
-              value={FMT_N(result.pobInducidaTotal)}
-              sub={`${FMT_N(result.hogaresAdicionalesTotal)} hogares adicionales requeridos`}
-              color="var(--violet-600)"
-            />
-            <KPICard
-              icon={<Coins size={18} />}
-              label="Ingreso local anual"
-              value={FMT_MRD(result.ingresoTotalLocalAnualGs) + ' Gs.'}
-              sub={`Masa salarial local + compras locales anuales`}
-              color="var(--amber-600)"
-            />
-          </div>
-
           {/* ── Cronograma e hitos clave ───────────────────────────────── */}
-          <div className="chart-card" style={{ marginBottom: 16 }}>
+          <div className="chart-card">
             <h4 className="chart-title">
               <Calendar size={14} style={{ marginRight: 6 }} />
               Cronograma e hitos clave del proyecto PARACEL
@@ -301,7 +269,7 @@ export default function ImpactoView() {
           </div>
 
           {/* ── Evolución temporal de indicadores ─────────────────────────── */}
-          <div className="charts-grid-2" style={{ marginBottom: 16 }}>
+          <div className="charts-grid-2">
             <div className="chart-card">
               <h4 className="chart-title">Evolución del empleo por año</h4>
               <ResponsiveContainer width="100%" height={220}>
@@ -337,6 +305,38 @@ export default function ImpactoView() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+          </div>
+
+          {/* KPIs empleo */}
+          <div className="kpi-grid-4">
+            <KPICard
+              icon={<Factory size={18} />}
+              label="Empleo total estimado"
+              value={FMT_N(result.empleoTotal)}
+              sub={`Directo ${FMT_N(result.empleoDirectoTotal)} + Indirecto ${FMT_N(result.empleoIndirecto)} + Inducido ${FMT_N(result.empleoInducido)}`}
+              color="var(--emerald-600)"
+            />
+            <KPICard
+              icon={<Users size={18} />}
+              label="Empleo capturado localmente"
+              value={`${FMT_N(result.empleoLocal)} (${params.capturaLocal_pct}%)`}
+              sub={`${FMT_N(result.empleoImportado)} puestos cubiertos desde fuera`}
+              color="var(--blue-600)"
+            />
+            <KPICard
+              icon={<Building2 size={18} />}
+              label="Nuevos residentes estimados"
+              value={FMT_N(result.pobInducidaTotal)}
+              sub={`${FMT_N(result.hogaresAdicionalesTotal)} hogares adicionales requeridos`}
+              color="var(--violet-600)"
+            />
+            <KPICard
+              icon={<Coins size={18} />}
+              label="Ingreso local anual"
+              value={FMT_MRD(result.ingresoTotalLocalAnualGs) + ' Gs.'}
+              sub={`Masa salarial local + compras locales anuales`}
+              color="var(--amber-600)"
+            />
           </div>
 
           {/* Gráficos */}

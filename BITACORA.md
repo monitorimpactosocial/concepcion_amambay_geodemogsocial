@@ -1,5 +1,24 @@
 ﻿# Bitacora operativa
 
+## 2026-05-19 - Series laborales, reporte extendido y mapa territorial
+
+### Diagnostico atendido
+
+- El reporte PDF necesitaba mayor profundidad analitica, especialmente series historicas, actuales y proyectadas de PEA, ocupados, salarios medios e ingresos.
+- La lectura del impacto PARACEL requeria mostrar no solo empleo esperado, sino tambien como el proyecto puede mover ingresos medios y masa laboral local.
+- Algunas capas cartograficas no se filtraban o no eran visibles porque hidrografia no trae campos `DPTO/DISTRITO` y el censo barrial usa `cod_dep/cod_dis`.
+- El mapa necesitaba colores por departamento, mapas de calor de viviendas por distrito y barrios, y etiquetas reducidas para vias, hidrografia, barrios y comunidades indigenas.
+
+### Cambios aplicados
+
+- `src/data/laborMarket.ts`: agrega modelo derivado de mercado laboral con PEA, ocupados, salario medio, ingreso laboral e ingreso PARACEL mensual por periodo historico, actual y proyectado.
+- `src/views/ProjectionsView.tsx`: agrega figuras de PEA, ocupados, salarios medios e ingreso PARACEL con lineas historicas, base 2022 y proyeccion.
+- `src/views/ImpactoView.tsx`: incorpora KPIs y graficos laborales/salariales vinculados al escenario PARACEL editable.
+- `src/views/ReporteView.tsx`: amplia el PDF con graficos laborales, tabla por hitos, supuestos comparados del motor PARACEL y mayor detalle de trazabilidad.
+- `src/utils/geo.ts` y `src/components/MapViewer.tsx`: corrigen deteccion de departamento/distrito en capas con esquemas distintos, agregan heatmaps de viviendas y etiquetas reducidas por capa.
+- `src/App.tsx` y `src/components/Sidebar.tsx`: ajustan capas visibles por defecto y evitan cargar puntos de vivienda masivos cuando se usa el heatmap distrital.
+- `src/App.tsx` y `src/hooks/useJsonResource.ts`: evitan restaurar automaticamente capas pesadas desde estados antiguos del navegador y liberan recursos desactivados para reducir riesgo de pantalla en blanco por memoria/carga excesiva.
+
 ## 2026-05-19 - Indicadores macro BCP y anexo estadistico
 
 ### Diagnostico atendido

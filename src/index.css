@@ -972,6 +972,28 @@ button {
 .tt-row span { color: var(--text-secondary); }
 .tt-row b { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
 
+.map-label {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: rgba(255, 255, 255, 0.78) !important;
+  color: #0f172a !important;
+  border-radius: 4px !important;
+  padding: 1px 4px !important;
+  font-size: 10px !important;
+  line-height: 1.15 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.85);
+  pointer-events: none !important;
+}
+
+.district-label { color: #111827 !important; background: rgba(255, 255, 255, 0.86) !important; }
+.water-label { color: #0369a1 !important; background: rgba(224, 242, 254, 0.82) !important; font-size: 9px !important; }
+.road-label { color: #7c2d12 !important; background: rgba(255, 247, 237, 0.82) !important; font-size: 9px !important; }
+.barrio-label,
+.censo-label { color: #831843 !important; background: rgba(252, 231, 243, 0.78) !important; font-size: 9px !important; }
+.indigena-label { color: #065f46 !important; background: rgba(209, 250, 229, 0.84) !important; font-size: 9px !important; }
+
 .map-overlay {
   position: absolute;
   z-index: 1000;

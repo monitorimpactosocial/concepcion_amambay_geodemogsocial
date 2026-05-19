@@ -40,7 +40,7 @@ function lookupDistrictCensus(districtName: string, deptCode: string | null): Di
   const deptKey = deptCode === '01' ? 'concepcion' : deptCode === '13' ? 'amambay' : null;
   if (!deptKey) return null;
   const clean = (s: string) =>
-    s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   const target = clean(districtName);
   return CENSUS[deptKey].distritos.find((d) => {
     const dn = clean(d.nombre);
@@ -48,14 +48,77 @@ function lookupDistrictCensus(districtName: string, deptCode: string | null): Di
   }) ?? null;
 }
 
-function choroplethColor(value: number, min: number, max: number): string {
+function heatColor(value: number, min: number, max: number): string {
   const t = max > min ? (value - min) / (max - min) : 0;
-  if (t < 0.15) return '#eff6ff';
-  if (t < 0.30) return '#bfdbfe';
-  if (t < 0.50) return '#60a5fa';
-  if (t < 0.70) return '#2563eb';
-  if (t < 0.85) return '#1e40af';
-  return '#1e3a8a';
+  if (t < 0.15) return '#ecfeff';
+  if (t < 0.30) return '#a7f3d0';
+  if (t < 0.50) return '#fde68a';
+  if (t < 0.70) return '#fb923c';
+  if (t < 0.86) return '#ef4444';
+  return '#991b1b';
+}
+
+function departmentStrokeColor(feature?: Feature | null): string {
+  const code = getDepartmentCode(feature ?? undefined);
+  if (code === '01') return '#2563eb';
+  if (code === '13') return '#7c3aed';
+  return '#475569';
+}
+
+function ringAreaKm2(ring: unknown): number {
+  if (!Array.isArray(ring) || ring.length < 4) return 0;
+  const points = ring.filter((point) =>
+    Array.isArray(point) &&
+    typeof point[0] === 'number' &&
+    typeof point[1] === 'number',
+  ) as Array<[number, number]>;
+  if (points.length < 4) return 0;
+
+  const meanLat = points.reduce((sum, [, lat]) => sum + lat, 0) / points.length;
+  const kmPerDegLng = 111.32 * Math.cos(meanLat * Math.PI / 180);
+  const kmPerDegLat = 110.574;
+  let area = 0;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const [lng1, lat1] = points[i];
+    const [lng2, lat2] = points[i + 1];
+    area += (lng1 * kmPerDegLng) * (lat2 * kmPerDegLat) -
+      (lng2 * kmPerDegLng) * (lat1 * kmPerDegLat);
+  }
+  return Math.abs(area) / 2;
+}
+
+function estimateFeatureAreaKm2(feature: Feature | null | undefined): number {
+  const geometry = feature?.geometry as any;
+  if (!geometry?.coordinates) return 0;
+  if (geometry.type === 'Polygon') {
+    const rings = geometry.coordinates as unknown[];
+    const holes = rings.slice(1).reduce<number>((sum, ring) => sum + ringAreaKm2(ring), 0);
+    return Math.max(0, ringAreaKm2(rings[0]) - holes);
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return (geometry.coordinates as unknown[]).reduce<number>((sum, polygon) => {
+      if (!Array.isArray(polygon)) return sum;
+      const rings = polygon as unknown[];
+      const holes = rings.slice(1).reduce<number>((inner, ring) => inner + ringAreaKm2(ring), 0);
+      return sum + Math.max(0, ringAreaKm2(rings[0]) - holes);
+    }, 0);
+  }
+  return 0;
+}
+
+function getDistrictHousingDensity(feature: Feature | null | undefined): number {
+  const districtName = getDistrictName(feature);
+  const deptCode = getDepartmentCode(feature);
+  const census = lookupDistrictCensus(districtName, deptCode);
+  const hogares = safeNumber(getProp(feature, ['value', 'label_value']));
+  const area = census?.area_km2 ?? estimateFeatureAreaKm2(feature);
+  return area > 0 ? hogares / area : hogares;
+}
+
+function getBarrioHousingDensity(feature: Feature | null | undefined): number {
+  const viviendas = safeNumber(getProp(feature, ['viv1', 'hog1', 'value', 'label_value']));
+  const area = Math.max(0.03, estimateFeatureAreaKm2(feature));
+  return viviendas / area;
 }
 
 function shouldShowFeature(
@@ -241,6 +304,52 @@ function renderGenericPointLayer(
   );
 }
 
+function compactLabel(text: string, maxLength = 28): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxLength) return clean;
+  return `${clean.slice(0, maxLength - 3).trim()}...`;
+}
+
+function pickLabelFeatures(features: Feature[], maxLabels: number): Feature[] {
+  if (features.length <= maxLabels) return features;
+  const step = Math.ceil(features.length / maxLabels);
+  return features.filter((_, index) => index % step === 0).slice(0, maxLabels);
+}
+
+function renderFeatureLabels({
+  features,
+  fallback,
+  className,
+  maxLabels,
+  maxLength,
+}: {
+  features: Feature[];
+  fallback: string;
+  className: string;
+  maxLabels: number;
+  maxLength?: number;
+}) {
+  return pickLabelFeatures(features, maxLabels).map((feature, index) => {
+    const center = pointCenterFromFeature(feature);
+    if (!center) return null;
+    const label = compactLabel(getLayerFeatureName(feature, fallback), maxLength);
+    if (!label || label === fallback) return null;
+    return (
+      <CircleMarker
+        key={`${className}-${index}`}
+        center={[center.lat, center.lng]}
+        radius={0.1}
+        pathOptions={{ opacity: 0, fillOpacity: 0 }}
+        interactive={false}
+      >
+        <Tooltip permanent direction="center" className={`map-label ${className}`}>
+          {label}
+        </Tooltip>
+      </CircleMarker>
+    );
+  });
+}
+
 export default function MapViewer({
   baseData,
   activeDepartment,
@@ -276,13 +385,59 @@ export default function MapViewer({
     [activeDepartment, baseData],
   );
 
+  const visibleWaterFeatures = useMemo(
+    () => getFeatureCollectionFeatures(waterData).filter((feature) =>
+      shouldShowFeature(feature, activeDepartment, selectedDistrictKey),
+    ),
+    [activeDepartment, selectedDistrictKey, waterData],
+  );
+
+  const visibleRoutesFeatures = useMemo(
+    () => getFeatureCollectionFeatures(routesData).filter((feature) =>
+      shouldShowFeature(feature, activeDepartment, selectedDistrictKey),
+    ),
+    [activeDepartment, routesData, selectedDistrictKey],
+  );
+
+  const visibleViasFeatures = useMemo(
+    () => getFeatureCollectionFeatures(viasData).filter((feature) =>
+      shouldShowFeature(feature, activeDepartment, selectedDistrictKey),
+    ),
+    [activeDepartment, selectedDistrictKey, viasData],
+  );
+
+  const visibleBarriosFeatures = useMemo(
+    () => getFeatureCollectionFeatures(barriosData).filter((feature) =>
+      shouldShowFeature(feature, activeDepartment, selectedDistrictKey),
+    ),
+    [activeDepartment, barriosData, selectedDistrictKey],
+  );
+
+  const visibleCensoFeatures = useMemo(
+    () => getFeatureCollectionFeatures(censoData).filter((feature) =>
+      shouldShowFeature(feature, activeDepartment, selectedDistrictKey),
+    ),
+    [activeDepartment, censoData, selectedDistrictKey],
+  );
+
+  const visibleIndigenasFeatures = useMemo(
+    () => getFeatureCollectionFeatures(indigenasData).filter((feature) =>
+      shouldShowFeature(feature, activeDepartment, selectedDistrictKey),
+    ),
+    [activeDepartment, indigenasData, selectedDistrictKey],
+  );
+
   const { choroplethMin, choroplethMax } = useMemo(() => {
-    const values = visibleBaseFeatures.map((f) =>
-      safeNumber(getProp(f, ['value', 'label_value'])),
-    );
+    const values = visibleBaseFeatures.map((f) => getDistrictHousingDensity(f));
     if (values.length === 0) return { choroplethMin: 0, choroplethMax: 1 };
     return { choroplethMin: Math.min(...values), choroplethMax: Math.max(...values) };
   }, [visibleBaseFeatures]);
+
+  const { barrioHeatMin, barrioHeatMax } = useMemo(() => {
+    const values = visibleCensoFeatures.map((feature) => getBarrioHousingDensity(feature));
+    if (values.length === 0) return { barrioHeatMin: 0, barrioHeatMax: 1 };
+    return { barrioHeatMin: Math.min(...values), barrioHeatMax: Math.max(...values) };
+  }, [visibleCensoFeatures]);
 
   const selectedDistrictLabel = selectedDistrict
     ? `${selectedDistrict.districtName}, ${selectedDistrict.departmentName}`
@@ -296,6 +451,8 @@ export default function MapViewer({
     () => [
       { label: 'Concepción', color: '#2563eb' },
       { label: 'Amambay', color: '#7c3aed' },
+      { label: 'Densidad vivienda baja', color: '#a7f3d0' },
+      { label: 'Densidad vivienda alta', color: '#ef4444' },
       { label: 'Salud', color: '#16a34a' },
       { label: 'Educación', color: '#ea580c' },
       { label: 'Agua', color: '#0891b2' },
@@ -384,8 +541,7 @@ export default function MapViewer({
         {layerVisibility.routes && routesData && (
           <Pane name="routes" style={{ zIndex: 420 }}>
             <GeoJSON
-              data={routesData}
-              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
+              data={buildFeatureCollection(visibleRoutesFeatures)}
               style={() => ({
                 color: '#b45309',
                 weight: 2.2,
@@ -405,11 +561,10 @@ export default function MapViewer({
         {layerVisibility.water && waterData && (
           <Pane name="water" style={{ zIndex: 410 }}>
             <GeoJSON
-              data={waterData}
-              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
+              data={buildFeatureCollection(visibleWaterFeatures)}
               style={() => ({
                 color: '#0284c7',
-                weight: 1.1,
+                weight: zoomLevel >= 10 ? 1.8 : 1.15,
                 opacity: 0.9,
                 fillColor: '#38bdf8',
                 fillOpacity: 0.2,
@@ -428,14 +583,14 @@ export default function MapViewer({
         {layerVisibility.barrios && barriosData && (
           <Pane name="barrios" style={{ zIndex: 430 }}>
             <GeoJSON
-              data={barriosData}
-              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
-              style={() => ({
-                color: '#db2777',
+              data={buildFeatureCollection(visibleBarriosFeatures)}
+              style={(feature) => ({
+                color: departmentStrokeColor(feature as Feature),
                 weight: 1.2,
                 opacity: 0.95,
-                fillOpacity: 0,
-                dashArray: '4 4',
+                fillColor: departmentStrokeColor(feature as Feature),
+                fillOpacity: selectedDistrictKey ? 0.06 : 0.025,
+                dashArray: '3 5',
               })}
               onEachFeature={(feature, layer) => {
                 const name = getLayerFeatureName(feature as Feature, 'Barrio');
@@ -476,13 +631,14 @@ export default function MapViewer({
             <GeoJSON
               key={`choropleth-${activeDepartment ?? 'all'}-${selectedDistrictKey ?? 'none'}`}
               data={buildFeatureCollection(visibleBaseFeatures)}
+              interactive={false}
               style={(feature) => {
-                const value = safeNumber(getProp(feature as Feature, ['value', 'label_value']));
+                const value = getDistrictHousingDensity(feature as Feature);
                 return {
                   color: 'transparent',
                   weight: 0,
-                  fillColor: choroplethColor(value, choroplethMin, choroplethMax),
-                  fillOpacity: 0.65,
+                  fillColor: heatColor(value, choroplethMin, choroplethMax),
+                  fillOpacity: 0.58,
                 };
               }}
             />
@@ -491,9 +647,7 @@ export default function MapViewer({
 
         {layerVisibility.indigenas && indigenasData && (
           <Pane name="indigenas" style={{ zIndex: 520 }}>
-            {getFeatureCollectionFeatures(indigenasData)
-              .filter((feature) => shouldShowFeature(feature, activeDepartment, selectedDistrictKey))
-              .map((feature, index) => {
+            {visibleIndigenasFeatures.map((feature, index) => {
                 const center = pointCenterFromFeature(feature);
                 if (!center) return null;
 
@@ -617,8 +771,7 @@ export default function MapViewer({
         {layerVisibility.vias && viasData && (
           <Pane name="vias" style={{ zIndex: 445 }}>
             <GeoJSON
-              data={viasData}
-              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
+              data={buildFeatureCollection(visibleViasFeatures)}
               style={(feature) => {
                 const tipo = String(getProp(feature as Feature, ['TIPO_VIA']) || '');
                 let color = '#71717a';
@@ -692,20 +845,24 @@ export default function MapViewer({
         {layerVisibility.censo && censoData && (
           <Pane name="censo" style={{ zIndex: 432 }}>
             <GeoJSON
-              data={censoData}
-              filter={(feature) => shouldShowFeature(feature as Feature, activeDepartment, selectedDistrictKey)}
-              style={() => ({
-                color: '#4f46e5',
-                weight: 1.5,
-                opacity: 0.9,
-                fillColor: '#6366f1',
-                fillOpacity: 0.35,
-              })}
+              data={buildFeatureCollection(visibleCensoFeatures)}
+              style={(feature) => {
+                const density = getBarrioHousingDensity(feature as Feature);
+                return {
+                  color: departmentStrokeColor(feature as Feature),
+                  weight: selectedDistrictKey ? 0.9 : 0.55,
+                  opacity: 0.72,
+                  fillColor: heatColor(density, barrioHeatMin, barrioHeatMax),
+                  fillOpacity: 0.52,
+                };
+              }}
               onEachFeature={(feature, layer) => {
                 const barrio = String(getProp(feature as Feature, ['barrio', 'BARRIO']) || 'Barrio/Localidad');
                 const pob1 = safeNumber(getProp(feature as Feature, ['pob1']));
                 const viv1 = safeNumber(getProp(feature as Feature, ['viv1']));
                 const hog1 = safeNumber(getProp(feature as Feature, ['hog1']));
+                const areaKm2 = estimateFeatureAreaKm2(feature as Feature);
+                const densidadViv = getBarrioHousingDensity(feature as Feature);
                 const hombres = safeNumber(getProp(feature as Feature, ['pob2']));
                 const mujeres = safeNumber(getProp(feature as Feature, ['pob3']));
                 const edad1 = safeNumber(getProp(feature as Feature, ['pob4']));
@@ -719,6 +876,7 @@ export default function MapViewer({
                     <span>Hombres / Mujeres: <b>${new Intl.NumberFormat('es-PY').format(hombres)}</b> / <b>${new Intl.NumberFormat('es-PY').format(mujeres)}</b></span>
                     <span>Edades: 0-14 (<b>${new Intl.NumberFormat('es-PY').format(edad1)}</b>), 15-64 (<b>${new Intl.NumberFormat('es-PY').format(edad2)}</b>), 65+ (<b>${new Intl.NumberFormat('es-PY').format(edad3)}</b>)</span>
                     <span>Viviendas / Hogares: <b>${new Intl.NumberFormat('es-PY').format(viv1)}</b> / <b>${new Intl.NumberFormat('es-PY').format(hog1)}</b></span>
+                    <span>Densidad viviendas: <b>${densidadViv.toFixed(1)} viv/km2</b>${areaKm2 ? ` en ${areaKm2.toFixed(2)} km2` : ''}</span>
                   </div>`,
                   { className: 'custom-tooltip', sticky: true },
                 );
@@ -726,6 +884,53 @@ export default function MapViewer({
             />
           </Pane>
         )}
+
+        <Pane name="reduced-labels" style={{ zIndex: 660, pointerEvents: 'none' }}>
+          {zoomLevel >= 7 && renderFeatureLabels({
+            features: visibleBaseFeatures.filter((feature) =>
+              selectedDistrictKey ? featureMatchesDistrict(feature, selectedDistrictKey) : true,
+            ),
+            fallback: 'Distrito',
+            className: 'district-label',
+            maxLabels: selectedDistrictKey ? 1 : 18,
+            maxLength: 24,
+          })}
+          {layerVisibility.water && zoomLevel >= 9 && renderFeatureLabels({
+            features: visibleWaterFeatures.filter((feature) => getLayerFeatureName(feature, '').length > 0),
+            fallback: 'Curso de agua',
+            className: 'water-label',
+            maxLabels: selectedDistrictKey ? 42 : 18,
+            maxLength: 24,
+          })}
+          {(layerVisibility.routes || layerVisibility.vias) && zoomLevel >= 9 && renderFeatureLabels({
+            features: [...visibleRoutesFeatures, ...visibleViasFeatures],
+            fallback: 'Via',
+            className: 'road-label',
+            maxLabels: selectedDistrictKey ? 55 : 24,
+            maxLength: 26,
+          })}
+          {layerVisibility.barrios && zoomLevel >= 10 && renderFeatureLabels({
+            features: visibleBarriosFeatures,
+            fallback: 'Barrio',
+            className: 'barrio-label',
+            maxLabels: selectedDistrictKey ? 70 : 26,
+            maxLength: 24,
+          })}
+          {layerVisibility.censo && zoomLevel >= 12 && renderFeatureLabels({
+            features: visibleCensoFeatures,
+            fallback: 'Barrio',
+            className: 'censo-label',
+            maxLabels: selectedDistrictKey ? 90 : 35,
+            maxLength: 22,
+          })}
+          {layerVisibility.indigenas && zoomLevel >= 10 && renderFeatureLabels({
+            features: visibleIndigenasFeatures,
+            fallback: 'Comunidad indigena',
+            className: 'indigena-label',
+            maxLabels: selectedDistrictKey ? 60 : 30,
+            maxLength: 24,
+          })}
+        </Pane>
 
       </MapContainer>
 

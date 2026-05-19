@@ -19,7 +19,15 @@ export function useJsonResource<T = unknown>(
   }, [filename]);
 
   useEffect(() => {
-    if (!url || !enabled) return;
+    if (!url || !enabled) {
+      if (url) {
+        RESOURCE_CACHE.delete(url);
+      }
+      setData(null);
+      setStatus('idle');
+      setError(null);
+      return;
+    }
 
     const finalUrl = url;
     const finalFilename = filename ?? 'recurso';

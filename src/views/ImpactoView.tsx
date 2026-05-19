@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import {
   AlertTriangle,
+  Briefcase,
   Building2,
   Calendar,
   Coins,
@@ -23,6 +24,12 @@ import {
 } from 'lucide-react';
 import KPICard from '../components/charts/KPICard';
 import { CENSUS } from '../data/census2022';
+import {
+  buildLaborIncomeTimeline,
+  getLaborYear,
+  LABOR_MARKET_SOURCE,
+  splitLaborSeries,
+} from '../data/laborMarket';
 import { SOCIAL_INDICATORS } from '../data/socialIndicators';
 import { BCP_MACRO_INDICATORS_2026, CONTEXT_SIGNAL_INDEX } from '../data/contexto2025';
 import type { GlobalFilters } from '../types';
@@ -44,6 +51,7 @@ import {
 const FMT_MRD = (n: number) => (n / 1_000_000_000).toLocaleString('es-PY', { maximumFractionDigits: 1 }) + ' MM';
 const FMT_N = (n: number) => Math.round(n).toLocaleString('es-PY');
 const FMT_PCT = (n: number, digits = 1) => `${n.toFixed(digits)}%`;
+const FMT_GS = (n: number) => `Gs. ${Math.round(n).toLocaleString('es-PY')}`;
 const CENSUS_SOURCE = 'INE, Censo 2022';
 const SOCIAL_SOURCE = 'INE/EPH 2022';
 const CONTEXT_SOURCE = 'Matriz PARACEL 2025-2026';
@@ -376,6 +384,15 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
     return Array.from(byYear.values()).sort((a, b) => a.anio - b.anio);
   }, [evolutionData]);
 
+  const laborTimeline = useMemo(
+    () => buildLaborIncomeTimeline(deptKeys, filters.projectionScenario, escenario, horizonYear, params),
+    [deptKeys, escenario, filters.projectionScenario, horizonYear, params],
+  );
+  const laborSeries = useMemo(() => splitLaborSeries(laborTimeline), [laborTimeline]);
+  const laborActual = getLaborYear(laborTimeline, 2022);
+  const laborOperacion = getLaborYear(laborTimeline, result.anioOperacionPlena);
+  const laborHorizon = getLaborYear(laborTimeline, horizonYear);
+
   const radarData = useMemo(() => [
     {
       dimension: 'Empleo',
@@ -705,6 +722,21 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
               sub="salarios retenidos + compras locales"
               source={PARACEL_MODEL_SOURCE}
               color="var(--emerald-600)" />
+            <KPICard icon={<Briefcase size={18} />} label={`PEA ${horizonYear}`}
+              value={FMT_N(laborHorizon.pea)}
+              sub={`Actual 2022: ${FMT_N(laborActual.pea)}`}
+              source={LABOR_MARKET_SOURCE}
+              color="var(--emerald-700)" />
+            <KPICard icon={<Users size={18} />} label={`Ocupados ${horizonYear}`}
+              value={FMT_N(laborHorizon.ocupados)}
+              sub={`Operacion ${result.anioOperacionPlena}: ${FMT_N(laborOperacion.ocupados)}`}
+              source={LABOR_MARKET_SOURCE}
+              color="var(--blue-600)" />
+            <KPICard icon={<Gauge size={18} />} label={`Salario medio ${horizonYear}`}
+              value={FMT_GS(laborHorizon.salarioMedioGs)}
+              sub={`Actual 2022: ${FMT_GS(laborActual.salarioMedioGs)}`}
+              source={LABOR_MARKET_SOURCE}
+              color="var(--amber-600)" />
             <KPICard icon={<Truck size={18} />} label="Produccion equivalente"
               value={`${FMT_N(Math.round(resumenKpis.toneladasDia))} t/dia`}
               sub={`${FMT_N(Math.round(resumenKpis.produccionPorEmpleo))} t/año por empleo total`}
@@ -750,6 +782,52 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
               </LineChart>
             </ResponsiveContainer>
             <p className="source-note"><strong>Fuente:</strong> Paracel y BID Invest para observados/referencias; simulacion propia para valores esperados.</p>
+          </div>
+
+          <div className="charts-grid-2 print-section">
+            <div className="chart-card">
+              <h4 className="chart-title">PEA y ocupados: historico, actual y proyectado con PARACEL</h4>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={laborSeries} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                  <XAxis dataKey="anio" tick={{ fontSize: 10 }} />
+                  <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(v: number, name: string) => [FMT_N(v), name]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <ReferenceLine x={2022} stroke="#111827" strokeDasharray="4 4" label={{ value: 'Actual 2022', fontSize: 10, fill: '#111827' }} />
+                  {PARACEL_MILESTONES.map((milestone) => (
+                    <ReferenceLine key={milestone.anio} x={milestone.anio} stroke="#111827" strokeDasharray="4 4" strokeOpacity={0.28} />
+                  ))}
+                  <Line type="monotone" dataKey="peaHistorico" name="PEA historica" stroke="#64748b" strokeWidth={2} dot connectNulls />
+                  <Line type="monotone" dataKey="peaActual" name="PEA actual" stroke="#111827" strokeWidth={0} dot={{ r: 5, fill: '#111827' }} />
+                  <Line type="monotone" dataKey="peaProyectado" name="PEA proyectada" stroke="#059669" strokeWidth={2.3} dot={false} connectNulls />
+                  <Line type="monotone" dataKey="ocupadosHistorico" name="Ocupados historicos" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 3" dot connectNulls />
+                  <Line type="monotone" dataKey="ocupadosActual" name="Ocupados actual" stroke="#111827" strokeWidth={0} dot={{ r: 5, fill: '#111827' }} />
+                  <Line type="monotone" dataKey="ocupadosProyectado" name="Ocupados proyectados" stroke="#2563eb" strokeWidth={2.3} strokeDasharray="5 3" dot={false} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+              <p className="source-note"><strong>Fuente:</strong> {LABOR_MARKET_SOURCE}</p>
+            </div>
+
+            <div className="chart-card">
+              <h4 className="chart-title">Salario medio mensual: linea base e impacto esperado</h4>
+              <ResponsiveContainer width="100%" height={260}>
+                <ComposedChart data={laborSeries} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                  <XAxis dataKey="anio" tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="left" tickFormatter={(v) => `${(Number(v) / 1_000_000).toFixed(1)}M`} tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${Math.round(Number(v) / 1_000_000_000)} MM`} tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(v: number, name: string) => [name === 'Ingreso PARACEL mensual' ? `${FMT_N(v)} Gs.` : FMT_GS(v), name]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <ReferenceLine yAxisId="left" x={2022} stroke="#111827" strokeDasharray="4 4" />
+                  <Bar yAxisId="right" dataKey="ingresoParacelMensualGs" name="Ingreso PARACEL mensual" fill="#f59e0b" opacity={0.38} radius={[4, 4, 0, 0]} />
+                  <Line yAxisId="left" type="monotone" dataKey="salarioHistorico" name="Salario historico" stroke="#64748b" strokeWidth={2} dot connectNulls />
+                  <Line yAxisId="left" type="monotone" dataKey="salarioActual" name="Salario actual" stroke="#111827" strokeWidth={0} dot={{ r: 5, fill: '#111827' }} />
+                  <Line yAxisId="left" type="monotone" dataKey="salarioProyectado" name="Salario proyectado" stroke="#d97706" strokeWidth={2.3} dot={false} connectNulls />
+                </ComposedChart>
+              </ResponsiveContainer>
+              <p className="source-note"><strong>Fuente:</strong> {LABOR_MARKET_SOURCE}</p>
+            </div>
           </div>
 
           <div className="charts-grid-2 print-section">

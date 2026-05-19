@@ -67,15 +67,15 @@ const LAYER_LABELS: Array<{
   { id: 'water', label: 'Hidrografía', icon: <Waves size={16} /> },
   { id: 'barrios', label: 'Barrios', icon: <MapPinned size={16} /> },
   { id: 'manzanas', label: 'Manzanas censales', icon: <Home size={16} /> },
-  { id: 'puntos', label: 'Viviendas', icon: <Layers size={16} /> },
+  { id: 'puntos', label: 'Densidad viviendas distrito', icon: <Layers size={16} /> },
   { id: 'indigenas', label: 'Comunidades indígenas', icon: <Trees size={16} /> },
   { id: 'salud', label: 'Locales de salud', icon: <HeartPulse size={16} /> },
   { id: 'educacion', label: 'Locales educativos', icon: <GraduationCap size={16} /> },
   { id: 'agua', label: 'Tanques de agua', icon: <Droplets size={16} /> },
   { id: 'pobreza', label: 'Riesgo de inundación', icon: <AlertTriangle size={16} /> },
   { id: 'vias', label: 'Vías principales', icon: <Route size={16} /> },
-  { id: 'usoSuelos', label: 'Uso de suelos', icon: <Trees size={16} /> },
-  { id: 'censo', label: 'Censo 2022', icon: <Users size={16} /> },
+  { id: 'usoSuelos', label: 'Uso de suelos (pesado)', icon: <Trees size={16} /> },
+  { id: 'censo', label: 'Densidad viviendas barrio', icon: <Users size={16} /> },
 ];
 
 function statusClass(status: LayerHealthItem['status']): string {

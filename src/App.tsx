@@ -34,20 +34,31 @@ const MetodologiaView = lazy(() => import('./views/MetodologiaView'));
 const STORAGE_KEY = 'monitor-impacto-social:v2';
 
 const DEFAULT_LAYERS: LayerVisibilityState = {
-  routes: false,
-  water: false,
-  barrios: false,
+  routes: true,
+  water: true,
+  barrios: true,
   manzanas: false,
-  puntos: false,
+  puntos: true,
   indigenas: false,
   salud: false,
   educacion: false,
   agua: false,
   pobreza: false,
-  vias: false,
+  vias: true,
   usoSuelos: false,
   censo: false,
 };
+
+const NON_RESTORED_LAYERS: Array<keyof LayerVisibilityState> = [
+  'manzanas',
+  'indigenas',
+  'salud',
+  'educacion',
+  'agua',
+  'pobreza',
+  'usoSuelos',
+  'censo',
+];
 
 const BASEMAP_OPTIONS: BasemapKey[] = ['light', 'dark', 'satellite'];
 const DEPARTMENT_OPTIONS: DepartmentCode[] = ['01', '13', null];
@@ -61,6 +72,19 @@ function pickAllowed<T>(value: unknown, allowed: readonly T[], fallback: T): T {
 function pickHorizonYear(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 2042;
   return Math.min(2052, Math.max(2027, value));
+}
+
+function normalizeStoredLayers(value: Partial<LayerVisibilityState> | undefined): LayerVisibilityState {
+  const next = {
+    ...DEFAULT_LAYERS,
+    ...(value ?? {}),
+  };
+
+  for (const layerId of NON_RESTORED_LAYERS) {
+    next[layerId] = false;
+  }
+
+  return next;
 }
 
 function readStoredState(): {
@@ -108,14 +132,11 @@ function readStoredState(): {
       horizonYear: number;
     }>;
 
-    return {
-      activeDepartment: pickAllowed(parsed.activeDepartment, DEPARTMENT_OPTIONS, null),
-      basemap: pickAllowed(parsed.basemap, BASEMAP_OPTIONS, 'light'),
-      layers: {
-        ...DEFAULT_LAYERS,
-        ...(parsed.layers ?? {}),
-      },
-      sidebarOpen:
+      return {
+        activeDepartment: pickAllowed(parsed.activeDepartment, DEPARTMENT_OPTIONS, null),
+        basemap: pickAllowed(parsed.basemap, BASEMAP_OPTIONS, 'light'),
+        layers: normalizeStoredLayers(parsed.layers),
+        sidebarOpen:
         typeof parsed.sidebarOpen === 'boolean'
           ? parsed.sidebarOpen
           : window.innerWidth >= 1180,
@@ -187,11 +208,11 @@ function App() {
   );
   const viviendasConcepcionResource = useJsonResource<GeoJsonObject>(
     'concepcion_viviendas.geojson',
-    layerVisibility.puntos,
+    false,
   );
   const viviendasAmambayResource = useJsonResource<GeoJsonObject>(
     'amambay_viviendas.geojson',
-    layerVisibility.puntos,
+    false,
   );
   const indigenasGeoResource = useJsonResource<GeoJsonObject>(
     'indigenas_comunidades.geojson',
@@ -302,15 +323,6 @@ function App() {
     }
   }, [activeDepartment, selectedDistrict]);
 
-  const mergedHousingFeatures = useMemo(
-    () =>
-      mergeFeatureCollections([
-        viviendasConcepcionResource.data,
-        viviendasAmambayResource.data,
-      ]),
-    [viviendasConcepcionResource.data, viviendasAmambayResource.data],
-  );
-
   const mergedUsoDeSuelosFeatures = useMemo(
     () =>
       mergeFeatureCollections([
@@ -368,19 +380,8 @@ function App() {
   ]);
 
   const layerHealthItems = useMemo<LayerHealthItem[]>(() => {
-    const viviendasStatus =
-      viviendasConcepcionResource.status === 'error' || viviendasAmambayResource.status === 'error'
-        ? 'error'
-        : viviendasConcepcionResource.status === 'loading' ||
-            viviendasAmambayResource.status === 'loading'
-          ? 'loading'
-          : viviendasConcepcionResource.status === 'loaded' &&
-              viviendasAmambayResource.status === 'loaded'
-            ? 'loaded'
-            : 'idle';
-
-    const viviendasError =
-      viviendasConcepcionResource.error || viviendasAmambayResource.error || null;
+    const viviendasStatus = layerVisibility.puntos ? baseResource.status : 'idle';
+    const viviendasError = baseResource.error;
 
     const usoSuelosStatus =
       usoDeSuelosConcepcionResource.status === 'error' || usoDeSuelosAmambayResource.status === 'error'
@@ -445,10 +446,10 @@ function App() {
       },
       {
         id: 'puntos',
-        label: 'Viviendas',
+        label: 'Densidad viviendas distrito',
         status: viviendasStatus,
         error: viviendasError,
-        count: mergedHousingFeatures.length,
+        count: countMatchingFeatures(baseResource.data ?? null, activeDepartment),
       },
       {
         id: 'indigenas',
@@ -494,14 +495,14 @@ function App() {
       },
       {
         id: 'usoSuelos',
-        label: 'Uso de suelos',
+        label: 'Uso de suelos (pesado)',
         status: usoSuelosStatus,
         error: usoSuelosError,
         count: mergedUsoDeSuelosFeatures.length,
       },
       {
         id: 'censo',
-        label: 'Censo 2022',
+        label: 'Densidad viviendas barrio',
         status: censoResource.status,
         error: censoResource.error,
         count: countMatchingFeatures(censoResource.data ?? null, activeDepartment),
@@ -512,6 +513,9 @@ function App() {
     aguaResource.data,
     aguaResource.error,
     aguaResource.status,
+    baseResource.data,
+    baseResource.error,
+    baseResource.status,
     barriosResource.data,
     barriosResource.error,
     barriosResource.status,
@@ -525,10 +529,10 @@ function App() {
     indigenasPueblosResource.status,
     indigenasStatsResource.error,
     indigenasStatsResource.status,
+    layerVisibility.puntos,
     manzanasResource.data,
     manzanasResource.error,
     manzanasResource.status,
-    mergedHousingFeatures.length,
     pobrezaResource.data,
     pobrezaResource.error,
     pobrezaResource.status,
@@ -549,10 +553,6 @@ function App() {
     censoResource.status,
     censoResource.error,
     censoResource.data,
-    viviendasAmambayResource.error,
-    viviendasAmambayResource.status,
-    viviendasConcepcionResource.error,
-    viviendasConcepcionResource.status,
     waterResource.data,
     waterResource.error,
     waterResource.status,
@@ -632,7 +632,7 @@ function App() {
       agua: true,
       pobreza: true,
       vias: true,
-      usoSuelos: true,
+      usoSuelos: false,
       censo: true,
     });
   };

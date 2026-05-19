@@ -1,5 +1,5 @@
 import {
-  Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer,
+  Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart, ResponsiveContainer,
   ReferenceLine, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import type { ReactNode } from 'react';
@@ -8,6 +8,12 @@ import {
 } from 'lucide-react';
 import KPICard from '../components/charts/KPICard';
 import { CENSUS, type DeptKey } from '../data/census2022';
+import {
+  buildLaborIncomeTimeline,
+  getLaborYear,
+  LABOR_MARKET_SOURCE,
+  splitLaborSeries,
+} from '../data/laborMarket';
 import { SOCIAL_INDICATORS, SERIES_HISTORICAS } from '../data/socialIndicators';
 import { getProjection } from '../data/projectionEngine';
 import { computeImpacto, ESCENARIOS_PRESET } from '../data/impactoEngine';
@@ -31,6 +37,7 @@ import {
 const fmt = (n: number) => Math.round(n).toLocaleString('es-PY');
 const pct = (n: number, digits = 1) => `${n.toFixed(digits)}%`;
 const mm = (n: number) => `${(n / 1_000_000_000).toLocaleString('es-PY', { maximumFractionDigits: 1 })} MM Gs.`;
+const fmtGs = (n: number) => `Gs. ${Math.round(n).toLocaleString('es-PY')}`;
 const CENSUS_SOURCE = 'INE, Censo 2022';
 const SOCIAL_SOURCE = 'INE/EPH 2022';
 const PROJECTION_SOURCE = 'INE 2022 + proyeccion propia';
@@ -141,6 +148,15 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
   const projectionAma = getProjection('amambay', filters.projectionScenario);
   const projectionScope = aggregateProjection(deptKeys, filters.projectionScenario);
   const censusScope = aggregateCensus(deptKeys);
+  const laborTimeline = buildLaborIncomeTimeline(
+    deptKeys,
+    filters.projectionScenario,
+    filters.impactScenario,
+    horizonYear,
+  );
+  const laborSeries = splitLaborSeries(laborTimeline);
+  const laborActual = getLaborYear(laborTimeline, 2022);
+  const laborHorizon = getLaborYear(laborTimeline, horizonYear);
   const basePob = censusScope.poblacion_total;
   const pob2052 = getYear(projectionScope, 2052).pobTotal;
   const ruralPct = (censusScope.pob_rural / Math.max(1, basePob)) * 100;
@@ -217,6 +233,34 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
       return [CENSUS[dept].nombre, anio, fmt(row.pobTotal), pct(row.razDependencia), row.tgf.toFixed(2)];
     }));
 
+  const laborRows = Array.from(new Set([2012, 2017, 2022, 2026, 2029, horizonYear, 2052]))
+    .sort((a, b) => a - b)
+    .map((anio) => {
+      const row = getLaborYear(laborTimeline, anio);
+      return [
+        anio,
+        row.etapa === 'historico' ? 'Historico' : row.etapa === 'actual' ? 'Actual/base' : 'Proyectado',
+        fmt(row.poblacionEdadActiva),
+        fmt(row.pea),
+        fmt(row.ocupados),
+        pct(row.tasaActividadPct),
+        pct(row.tasaOcupacionPct),
+        fmtGs(row.salarioMedioGs),
+        mm(row.ingresoLaboralMensualGs),
+      ];
+    });
+
+  const scenarioRows = (Object.entries(ESCENARIOS_PRESET) as Array<[keyof typeof ESCENARIOS_PRESET, typeof impactoParams]>)
+    .map(([key, params]) => [
+      key,
+      fmt(params.empleoDirectoObra),
+      fmt(params.empleoDirectoOperacion),
+      params.multiplicadorIndirecto.toFixed(1),
+      `${params.capturaLocal_pct}%`,
+      fmtGs(params.salarioMensualGs),
+      `${params.pctComprasLocales}%`,
+    ]);
+
   return (
     <div className="view-container impacto-report report-page">
       <div className="impacto-hero print-section">
@@ -239,6 +283,9 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
         <KPICard label="Población indígena" value={pct(indigenaPct)} sub="enfoque diferencial necesario" source={CENSUS_SOURCE} color="var(--violet-600)" icon={<Users size={18} />} />
         <KPICard label="Ingreso local anual" value={mm(impacto.ingresoTotalLocalAnualGs)} sub="salarios retenidos + compras locales" source={PARACEL_MODEL_SOURCE} color="var(--emerald-600)" icon={<FileText size={18} />} />
         <KPICard label="Hogares adicionales" value={fmt(impacto.hogaresAdicionalesTotal)} sub="demanda habitacional inducida" source={PARACEL_MODEL_SOURCE} color="var(--orange-600)" icon={<Home size={18} />} />
+        <KPICard label={`PEA ${horizonYear}`} value={fmt(laborHorizon.pea)} sub={`Actual 2022: ${fmt(laborActual.pea)}`} source={LABOR_MARKET_SOURCE} color="var(--emerald-700)" icon={<Briefcase size={18} />} />
+        <KPICard label={`Ocupados ${horizonYear}`} value={fmt(laborHorizon.ocupados)} sub={`Actual 2022: ${fmt(laborActual.ocupados)}`} source={LABOR_MARKET_SOURCE} color="var(--blue-600)" icon={<Users size={18} />} />
+        <KPICard label={`Salario medio ${horizonYear}`} value={fmtGs(laborHorizon.salarioMedioGs)} sub={`Actual 2022: ${fmtGs(laborActual.salarioMedioGs)}`} source={LABOR_MARKET_SOURCE} color="var(--amber-600)" icon={<TrendingUp size={18} />} />
       </div>
 
       <div className="chart-card print-section">
@@ -361,6 +408,61 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
         </div>
       </div>
 
+      <div className="charts-grid-2 print-section">
+        <div className="chart-card">
+          <h4 className="chart-title">Mercado laboral: PEA y ocupados, historico-actual-proyectado</h4>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={laborSeries} margin={{ top: 8, right: 18, left: 8, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+              <XAxis dataKey="anio" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: number, name: string) => [fmt(v), name]} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <ReferenceLine x={2022} stroke="#111827" strokeDasharray="4 4" label={{ value: 'Actual 2022', fontSize: 10, fill: '#111827' }} />
+              {PARACEL_MILESTONES.map((milestone) => (
+                <ReferenceLine key={milestone.anio} x={milestone.anio} stroke="#111827" strokeDasharray="4 4" strokeOpacity={0.28} />
+              ))}
+              <Line type="monotone" dataKey="peaHistorico" name="PEA historica" stroke="#64748b" strokeWidth={2} dot connectNulls />
+              <Line type="monotone" dataKey="peaActual" name="PEA actual" stroke="#111827" strokeWidth={0} dot={{ r: 5, fill: '#111827' }} />
+              <Line type="monotone" dataKey="peaProyectado" name="PEA proyectada" stroke="#059669" strokeWidth={2.4} dot={false} connectNulls />
+              <Line type="monotone" dataKey="ocupadosHistorico" name="Ocupados historicos" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 3" dot connectNulls />
+              <Line type="monotone" dataKey="ocupadosActual" name="Ocupados actual" stroke="#111827" strokeWidth={0} dot={{ r: 5, fill: '#111827' }} />
+              <Line type="monotone" dataKey="ocupadosProyectado" name="Ocupados proyectados" stroke="#2563eb" strokeWidth={2.4} strokeDasharray="5 3" dot={false} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {LABOR_MARKET_SOURCE}</p>
+        </div>
+
+        <div className="chart-card">
+          <h4 className="chart-title">Salario medio e ingreso laboral mensual con efecto PARACEL</h4>
+          <ResponsiveContainer width="100%" height={260}>
+            <ComposedChart data={laborSeries} margin={{ top: 8, right: 18, left: 8, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+              <XAxis dataKey="anio" tick={{ fontSize: 11 }} />
+              <YAxis yAxisId="left" tickFormatter={(v) => `${(Number(v) / 1_000_000).toFixed(1)}M`} tick={{ fontSize: 11 }} />
+              <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${Math.round(Number(v) / 1_000_000_000)} MM`} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: number, name: string) => [name === 'Ingreso PARACEL mensual' ? `${fmt(v)} Gs.` : fmtGs(v), name]} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <ReferenceLine yAxisId="left" x={2022} stroke="#111827" strokeDasharray="4 4" />
+              <Bar yAxisId="right" dataKey="ingresoParacelMensualGs" name="Ingreso PARACEL mensual" fill="#f59e0b" opacity={0.38} radius={[4, 4, 0, 0]} />
+              <Line yAxisId="left" type="monotone" dataKey="salarioHistorico" name="Salario historico" stroke="#64748b" strokeWidth={2} dot connectNulls />
+              <Line yAxisId="left" type="monotone" dataKey="salarioActual" name="Salario actual" stroke="#111827" strokeWidth={0} dot={{ r: 5, fill: '#111827' }} />
+              <Line yAxisId="left" type="monotone" dataKey="salarioProyectado" name="Salario proyectado" stroke="#d97706" strokeWidth={2.4} dot={false} connectNulls />
+            </ComposedChart>
+          </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {LABOR_MARKET_SOURCE}</p>
+        </div>
+      </div>
+
+      <div className="chart-card print-section">
+        <h4 className="chart-title">Detalle laboral por hitos: historico, actual y proyectado</h4>
+        <ReportTable
+          headers={['Año', 'Etapa', 'Poblacion 15-64', 'PEA', 'Ocupados', 'Actividad', 'Ocupacion', 'Salario medio', 'Ingreso laboral mensual']}
+          rows={laborRows}
+        />
+        <p className="source-note"><strong>Fuente:</strong> {LABOR_MARKET_SOURCE}</p>
+      </div>
+
       <div className="chart-card print-section">
         <h4 className="chart-title">PARACEL: antes, durante obra y operación</h4>
         <ResponsiveContainer width="100%" height={260}>
@@ -377,6 +479,15 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
           </BarChart>
         </ResponsiveContainer>
         <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}.</p>
+      </div>
+
+      <div className="chart-card print-section">
+        <h4 className="chart-title">Supuestos comparados del motor PARACEL</h4>
+        <ReportTable
+          headers={['Escenario', 'Empleo obra', 'Empleo operacion', 'Multiplicador', 'Captura local', 'Salario mensual', 'Compras locales']}
+          rows={scenarioRows}
+        />
+        <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}; parametros editables del tablero.</p>
       </div>
 
       <div className="chart-card print-section">

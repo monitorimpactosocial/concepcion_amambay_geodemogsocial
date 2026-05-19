@@ -61,8 +61,31 @@ export function isTargetDepartment(code: string | null): boolean {
   return code !== null && TARGET_DEPARTMENTS.has(code);
 }
 
+function inferDepartmentCodeFromGeometry(feature: Feature | null | undefined): string | null {
+  if (!feature?.geometry) return null;
+  const points: Array<[number, number]> = [];
+  pushCoordinates((feature.geometry as any).coordinates, points);
+  if (!points.length) return null;
+
+  const lng = points.reduce((sum, [x]) => sum + x, 0) / points.length;
+  const lat = points.reduce((sum, [, y]) => sum + y, 0) / points.length;
+
+  if (lat >= -24.1 && lat <= -21.6 && lng >= -56.45 && lng <= -55.0) return '13';
+  if (lat >= -24.8 && lat <= -21.8 && lng >= -58.8 && lng <= -55.85) return '01';
+  return null;
+}
+
 export function getDepartmentCode(feature: Feature | null | undefined): string | null {
-  return normalizeDepartmentCode(getProp(feature, ['DPTO', 'dpto', 'Dpto', 'COD_DPTO', 'CodDpto']));
+  const explicit = normalizeDepartmentCode(getProp(feature, [
+    'DPTO',
+    'dpto',
+    'Dpto',
+    'COD_DPTO',
+    'CodDpto',
+    'cod_dep',
+    'COD_DEP',
+  ]));
+  return explicit ?? inferDepartmentCodeFromGeometry(feature);
 }
 
 export function getDepartmentName(feature: Feature | null | undefined): string {
@@ -73,12 +96,25 @@ export function getDepartmentName(feature: Feature | null | undefined): string {
     'dptodesc',
     'Departamento',
     'departamento',
+    'departamen',
   ]);
-  return value ? String(value) : 'Departamento no identificado';
+  if (value) return String(value);
+  const code = getDepartmentCode(feature);
+  if (code === '01') return 'Concepcion';
+  if (code === '13') return 'Amambay';
+  return 'Departamento no identificado';
 }
 
 export function getDistrictCode(feature: Feature | null | undefined): string {
-  const value = getProp(feature, ['DISTRITO', 'distrito', 'Distrito', 'DIST', 'dist']);
+  const value = getProp(feature, [
+    'DISTRITO',
+    'distrito',
+    'Distrito',
+    'DIST',
+    'dist',
+    'cod_dis',
+    'COD_DIS',
+  ]);
   if (value === null || value === undefined) return 'sin-codigo';
   return String(value);
 }
@@ -92,6 +128,7 @@ export function getDistrictName(feature: Feature | null | undefined): string {
     'DistDesc',
     'NOM_DIST',
     'nom_dist',
+    'distrito_2',
     'disbar_des',
     'BARLO_DESC',
     'barlocdesc',
@@ -265,6 +302,8 @@ export function getLayerFeatureName(feature: Feature | null | undefined, fallbac
     'DesTipoVia',
     'NomPob',
     'disbar_des',
+    'barrio',
+    'distrito_2',
   ]);
   return value ? String(value) : fallback;
 }

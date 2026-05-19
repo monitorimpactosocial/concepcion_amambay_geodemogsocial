@@ -1,5 +1,18 @@
 ﻿# Bitacora operativa
 
+## 2026-05-18 - Mayor visibilidad de fuentes por indicador
+
+### Diagnostico atendido
+
+- Las fuentes estaban disponibles en notas generales o en la matriz completa, pero no siempre eran visibles junto a cada indicador mostrado en pantalla.
+- Para una revision institucional, cada KPI, grafico y tabla necesita trazabilidad inmediata de fuente o metodo.
+
+### Cambios aplicados
+
+- `src/components/charts/KPICard.tsx`: agrega campo visible `Fuente:` en tarjetas KPI.
+- `src/index.css`: estilos para fuente por tarjeta y notas de fuente en graficos/tablas.
+- `src/views/DemographyView.tsx`, `src/views/SocialView.tsx`, `src/views/ProjectionsView.tsx`, `src/views/ImpactoView.tsx` y `src/views/ReporteView.tsx`: incorporan fuente visible por indicador y notas de fuente bajo visualizaciones clave.
+
 ## 2026-05-18 - Matriz completa de 34 indicadores PARACEL
 
 ### Diagnostico atendido

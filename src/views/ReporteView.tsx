@@ -29,6 +29,11 @@ import {
 const fmt = (n: number) => Math.round(n).toLocaleString('es-PY');
 const pct = (n: number, digits = 1) => `${n.toFixed(digits)}%`;
 const mm = (n: number) => `${(n / 1_000_000_000).toLocaleString('es-PY', { maximumFractionDigits: 1 })} MM Gs.`;
+const CENSUS_SOURCE = 'INE, Censo 2022';
+const SOCIAL_SOURCE = 'INE/EPH 2022';
+const PROJECTION_SOURCE = 'INE 2022 + proyeccion propia';
+const CONTEXT_SOURCE = 'Matriz PARACEL 2025-2026';
+const PARACEL_MODEL_SOURCE = 'Paracel/BID Invest + simulacion propia';
 
 function socialKey(dept: DeptKey) {
   return dept === 'concepcion' ? 'concepcion_total' : 'amambay_total';
@@ -216,27 +221,27 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
       </div>
 
       <div className="kpi-grid-4 print-section">
-        <KPICard label="Poblacion base" value={fmt(basePob)} sub={`Censo 2022, ${viewScope}`} color="var(--emerald-700)" icon={<Users size={18} />} />
-        <KPICard label="Población 2052" value={fmt(pob2052)} sub={`${pob2052 >= basePob ? '+' : ''}${pct(((pob2052 - basePob) / basePob) * 100)} vs 2022`} color="var(--blue-600)" icon={<TrendingUp size={18} />} />
-        <KPICard label="Pobreza actual" value={pct(pobrezaPond)} sub="promedio ponderado EPH/INE" color="var(--red-600)" icon={<HeartPulse size={18} />} />
-        <KPICard label="Empleo total PARACEL" value={fmt(impacto.empleoTotal)} sub="directo + indirecto + inducido" color="var(--amber-600)" icon={<Briefcase size={18} />} />
-        <KPICard label="Ruralidad" value={pct(ruralPct)} sub="condiciona movilidad y servicios" color="var(--cyan-700)" icon={<Home size={18} />} />
-        <KPICard label="Población indígena" value={pct(indigenaPct)} sub="enfoque diferencial necesario" color="var(--violet-600)" icon={<Users size={18} />} />
-        <KPICard label="Ingreso local anual" value={mm(impacto.ingresoTotalLocalAnualGs)} sub="salarios retenidos + compras locales" color="var(--emerald-600)" icon={<FileText size={18} />} />
-        <KPICard label="Hogares adicionales" value={fmt(impacto.hogaresAdicionalesTotal)} sub="demanda habitacional inducida" color="var(--orange-600)" icon={<Home size={18} />} />
+        <KPICard label="Poblacion base" value={fmt(basePob)} sub={`Censo 2022, ${viewScope}`} source={CENSUS_SOURCE} color="var(--emerald-700)" icon={<Users size={18} />} />
+        <KPICard label="Población 2052" value={fmt(pob2052)} sub={`${pob2052 >= basePob ? '+' : ''}${pct(((pob2052 - basePob) / basePob) * 100)} vs 2022`} source={PROJECTION_SOURCE} color="var(--blue-600)" icon={<TrendingUp size={18} />} />
+        <KPICard label="Pobreza actual" value={pct(pobrezaPond)} sub="promedio ponderado EPH/INE" source={SOCIAL_SOURCE} color="var(--red-600)" icon={<HeartPulse size={18} />} />
+        <KPICard label="Empleo total PARACEL" value={fmt(impacto.empleoTotal)} sub="directo + indirecto + inducido" source={PARACEL_MODEL_SOURCE} color="var(--amber-600)" icon={<Briefcase size={18} />} />
+        <KPICard label="Ruralidad" value={pct(ruralPct)} sub="condiciona movilidad y servicios" source={CENSUS_SOURCE} color="var(--cyan-700)" icon={<Home size={18} />} />
+        <KPICard label="Población indígena" value={pct(indigenaPct)} sub="enfoque diferencial necesario" source={CENSUS_SOURCE} color="var(--violet-600)" icon={<Users size={18} />} />
+        <KPICard label="Ingreso local anual" value={mm(impacto.ingresoTotalLocalAnualGs)} sub="salarios retenidos + compras locales" source={PARACEL_MODEL_SOURCE} color="var(--emerald-600)" icon={<FileText size={18} />} />
+        <KPICard label="Hogares adicionales" value={fmt(impacto.hogaresAdicionalesTotal)} sub="demanda habitacional inducida" source={PARACEL_MODEL_SOURCE} color="var(--orange-600)" icon={<Home size={18} />} />
       </div>
 
       <div className="chart-card print-section">
         <h4 className="chart-title">Pulso económico y social 2025-2026 incorporado al análisis</h4>
         <div className="kpi-grid-4">
-          <KPICard label="PIB Paraguay 2025" value="+6,6%" sub="proyección 2026: +4,2%" color="var(--emerald-600)" icon={<TrendingUp size={18} />} />
-          <KPICard label="Contribuyentes Concepción" value="26.108" sub="base formal para proveedores" color="var(--blue-600)" icon={<FileText size={18} />} />
-          <KPICard label="Construcción Concepción" value="197" sub="permisos 2024; 948 ventas de inmuebles" color="var(--amber-600)" icon={<Home size={18} />} />
-          <KPICard label="Plantaciones forestales" value="+66,1%" sub="crecimiento de superficie en el bienio" color="var(--emerald-700)" icon={<Briefcase size={18} />} />
-          <KPICard label="Asegurados IPS" value="1.641.062" sub="+3,4% nacional en 2025" color="var(--cyan-700)" icon={<HeartPulse size={18} />} />
-          <KPICard label="Seguro médico" value="31%" sub="cobertura nacional estimada 2025" color="var(--red-600)" icon={<HeartPulse size={18} />} />
-          <KPICard label="Edad activa Concepción" value="63,8%" sub="población proyectada 2025" color="var(--violet-600)" icon={<Users size={18} />} />
-          <KPICard label="Desocupación nacional" value="3,6%" sub="subocupación 3,5%, 4T 2025" color="var(--emerald-600)" icon={<Briefcase size={18} />} />
+          <KPICard label="PIB Paraguay 2025" value="+6,6%" sub="proyección 2026: +4,2%" source="BCP" color="var(--emerald-600)" icon={<TrendingUp size={18} />} />
+          <KPICard label="Contribuyentes Concepción" value="26.108" sub="base formal para proveedores" source="DNIT" color="var(--blue-600)" icon={<FileText size={18} />} />
+          <KPICard label="Construcción Concepción" value="197" sub="permisos 2024; 948 ventas de inmuebles" source="Municipalidad de Concepcion / DGRP" color="var(--amber-600)" icon={<Home size={18} />} />
+          <KPICard label="Plantaciones forestales" value="+66,1%" sub="crecimiento de superficie en el bienio" source="INFONA" color="var(--emerald-700)" icon={<Briefcase size={18} />} />
+          <KPICard label="Asegurados IPS" value="1.641.062" sub="+3,4% nacional en 2025" source="IPS" color="var(--cyan-700)" icon={<HeartPulse size={18} />} />
+          <KPICard label="Seguro médico" value="31%" sub="cobertura nacional estimada 2025" source="INE" color="var(--red-600)" icon={<HeartPulse size={18} />} />
+          <KPICard label="Edad activa Concepción" value="63,8%" sub="población proyectada 2025" source="INE" color="var(--violet-600)" icon={<Users size={18} />} />
+          <KPICard label="Desocupación nacional" value="3,6%" sub="subocupación 3,5%, 4T 2025" source="INE" color="var(--emerald-600)" icon={<Briefcase size={18} />} />
         </div>
       </div>
 
@@ -254,6 +259,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
               <Bar dataKey="pressure" fill="#d97706" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {CONTEXT_SOURCE}; calculo propio.</p>
         </div>
         <div className="chart-card">
           <h4 className="chart-title">Lectura inteligente de señales 2025-2026</h4>
@@ -265,6 +271,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
               signal.interpretation,
             ])}
           />
+          <p className="source-note"><strong>Fuente:</strong> {CONTEXT_SOURCE}; matriz PARACEL cargada en app.</p>
         </div>
       </div>
 
@@ -306,6 +313,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
               <Line type="monotone" dataKey="amambay" stroke="#f59e0b" strokeWidth={2} dot />
             </LineChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {SOCIAL_SOURCE}; series historicas disponibles.</p>
         </div>
 
         <div className="chart-card">
@@ -325,6 +333,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
               <Line type="monotone" dataKey="total" stroke="#111827" strokeWidth={2.5} dot />
             </LineChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {PROJECTION_SOURCE}.</p>
         </div>
       </div>
 
@@ -343,6 +352,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
             <Bar yAxisId="right" dataKey="ingreso" fill="#f59e0b" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
+        <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}.</p>
       </div>
 
       <div className="chart-card print-section">
@@ -351,6 +361,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
           headers={['Departamento', 'Población', 'Rural', 'Indígena', 'Pobreza', 'Sin seguro', 'Sin agua', 'Actividad']}
           rows={baselineRows}
         />
+        <p className="source-note"><strong>Fuente:</strong> {CENSUS_SOURCE}; {SOCIAL_SOURCE}.</p>
       </div>
 
       <div className="chart-card print-section">
@@ -359,6 +370,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
           headers={['Código', 'Categoría', 'Indicador', 'Ámbito', 'Actualización 2025-2026', 'Fuente']}
           rows={contextRows}
         />
+        <p className="source-note"><strong>Fuente:</strong> matriz PARACEL 2025-2026; cada fila conserva su organismo fuente.</p>
       </div>
 
       <div className="chart-card print-section">
@@ -367,6 +379,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
           headers={['Categoria', 'Indicadores del documento', 'Cargados en app', 'Cobertura', 'Priorizados visibles']}
           rows={contextCoverageRows}
         />
+        <p className="source-note"><strong>Fuente:</strong> Reporte_Indicadores-PARACEL_editado.pdf y base interna de indicadores.</p>
       </div>
 
       <div className="chart-card print-section">
@@ -375,6 +388,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
           headers={['Codigo', 'Categoria', 'Indicador', 'Ambito', 'Fuente', 'Relevancia', 'Uso en app', 'Actualizacion 2025-2026']}
           rows={contextFullRows}
         />
+        <p className="source-note"><strong>Fuente:</strong> Reporte_Indicadores-PARACEL_editado.pdf; fuentes operativas detalladas por indicador.</p>
       </div>
 
       <div className="charts-grid-2 print-section">
@@ -384,6 +398,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
             headers={['Departamento', 'Año', 'Población', 'Dependencia', 'TGF']}
             rows={projectionRows}
           />
+          <p className="source-note"><strong>Fuente:</strong> {PROJECTION_SOURCE}.</p>
         </div>
         <div className="chart-card">
           <h4 className="chart-title">Agenda de gestión por fase</h4>
@@ -396,6 +411,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
               ['Consolidación', 'Crecimiento desordenado de servicios urbanos', 'Hogares nuevos, agua, saneamiento, salud', 'Plan de suelo, transporte y servicios con municipios'],
             ]}
           />
+          <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}; agenda tecnica derivada del analisis territorial.</p>
         </div>
       </div>
 
@@ -413,6 +429,7 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
             `${d.presionServiciosIndice}/100`,
           ])}
         />
+        <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}; distribucion distrital calculada sobre base territorial.</p>
       </div>
 
       <div className="metodologia-note print-section">

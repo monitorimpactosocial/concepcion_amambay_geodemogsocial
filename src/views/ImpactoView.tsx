@@ -44,6 +44,10 @@ import {
 const FMT_MRD = (n: number) => (n / 1_000_000_000).toLocaleString('es-PY', { maximumFractionDigits: 1 }) + ' MM';
 const FMT_N = (n: number) => Math.round(n).toLocaleString('es-PY');
 const FMT_PCT = (n: number, digits = 1) => `${n.toFixed(digits)}%`;
+const CENSUS_SOURCE = 'INE, Censo 2022';
+const SOCIAL_SOURCE = 'INE/EPH 2022';
+const CONTEXT_SOURCE = 'Matriz PARACEL 2025-2026';
+const PARACEL_MODEL_SOURCE = 'Paracel/BID Invest + simulacion propia';
 
 type TimelineTooltipPayload = {
   dataKey?: string | number;
@@ -601,12 +605,12 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
 
         <div className="results-panel">
           <div className="baseline-strip print-section">
-            <KPICard label="Poblacion base" value={FMT_N(baselineView.poblacion)} sub={`${viewScope}, Censo 2022`} color="var(--emerald-600)" icon={<Users size={18} />} />
-            <KPICard label="Ruralidad" value={FMT_PCT(baselineView.ruralPct)} sub="presion sobre conectividad y servicios" color="var(--blue-600)" icon={<Truck size={18} />} />
-            <KPICard label="Poblacion indigena" value={FMT_PCT(baselineView.indigenaPct)} sub="peso relativo en el filtro actual" color="var(--amber-600)" icon={<Trees size={18} />} />
-            <KPICard label="Pobreza estimada" value={FMT_PCT(baselineView.pobrezaPct)} sub="promedio ponderado departamental" color="var(--red-600)" icon={<AlertTriangle size={18} />} />
-            <KPICard label="Sin seguro medico" value={FMT_PCT(baselineView.sinSeguroPct)} sub="riesgo de presion sanitaria" color="var(--violet-600)" icon={<ShieldCheck size={18} />} />
-            <KPICard label="Sin agua potable" value={FMT_PCT(baselineView.sinAguaPct)} sub="brecha de servicios basicos" color="var(--cyan-600)" icon={<Home size={18} />} />
+            <KPICard label="Poblacion base" value={FMT_N(baselineView.poblacion)} sub={`${viewScope}, Censo 2022`} source={CENSUS_SOURCE} color="var(--emerald-600)" icon={<Users size={18} />} />
+            <KPICard label="Ruralidad" value={FMT_PCT(baselineView.ruralPct)} sub="presion sobre conectividad y servicios" source={CENSUS_SOURCE} color="var(--blue-600)" icon={<Truck size={18} />} />
+            <KPICard label="Poblacion indigena" value={FMT_PCT(baselineView.indigenaPct)} sub="peso relativo en el filtro actual" source={CENSUS_SOURCE} color="var(--amber-600)" icon={<Trees size={18} />} />
+            <KPICard label="Pobreza estimada" value={FMT_PCT(baselineView.pobrezaPct)} sub="promedio ponderado departamental" source={SOCIAL_SOURCE} color="var(--red-600)" icon={<AlertTriangle size={18} />} />
+            <KPICard label="Sin seguro medico" value={FMT_PCT(baselineView.sinSeguroPct)} sub="riesgo de presion sanitaria" source={SOCIAL_SOURCE} color="var(--violet-600)" icon={<ShieldCheck size={18} />} />
+            <KPICard label="Sin agua potable" value={FMT_PCT(baselineView.sinAguaPct)} sub="brecha de servicios basicos" source={SOCIAL_SOURCE} color="var(--cyan-600)" icon={<Home size={18} />} />
           </div>
 
           <div className="chart-card print-section">
@@ -622,6 +626,7 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                 <Bar dataKey="pressure" fill="#d97706" radius={[4, 4, 0, 0]} />
               </ComposedChart>
             </ResponsiveContainer>
+            <p className="source-note"><strong>Fuente:</strong> {CONTEXT_SOURCE}; calculo propio.</p>
           </div>
 
           <div className="phase-grid print-section">
@@ -644,40 +649,49 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                 <small>{fase.gestion}</small>
               </article>
             ))}
+            <p className="source-note phase-source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}.</p>
           </div>
 
           <div className="kpi-grid-4 print-section">
             <KPICard icon={<Factory size={18} />} label="Empleo total estimado"
               value={FMT_N(result.empleoTotal)}
               sub={`${FMT_PCT(resumenKpis.empleoVsRef, 0)} de la referencia ~7.000 empleos`}
+              source={PARACEL_MODEL_SOURCE}
               color="var(--emerald-600)" />
             <KPICard icon={<Users size={18} />} label="Captura local directa"
               value={`${FMT_N(result.empleoLocal)} (${params.capturaLocal_pct}%)`}
               sub={`${FMT_N(result.empleoImportado)} puestos importados o por formar`}
+              source={PARACEL_MODEL_SOURCE}
               color="var(--blue-600)" />
             <KPICard icon={<GraduationCap size={18} />} label="Cupos tecnicos urgentes"
               value={FMT_N(resumenKpis.cuposFormacion)}
               sub="meta minima para reducir dependencia externa"
+              source={PARACEL_MODEL_SOURCE}
               color="var(--violet-600)" />
             <KPICard icon={<Building2 size={18} />} label="Vivienda adicional"
               value={FMT_N(result.hogaresAdicionalesTotal)}
               sub={`${FMT_N(result.pobInducidaTotal)} residentes inducidos`}
+              source={PARACEL_MODEL_SOURCE}
               color="var(--amber-600)" />
             <KPICard icon={<Coins size={18} />} label="Ingreso local anual"
               value={`${FMT_MRD(result.ingresoTotalLocalAnualGs)} Gs.`}
               sub="salarios retenidos + compras locales"
+              source={PARACEL_MODEL_SOURCE}
               color="var(--emerald-600)" />
             <KPICard icon={<Truck size={18} />} label="Produccion equivalente"
               value={`${FMT_N(Math.round(resumenKpis.toneladasDia))} t/dia`}
               sub={`${FMT_N(Math.round(resumenKpis.produccionPorEmpleo))} t/año por empleo total`}
+              source={PARACEL_MODEL_SOURCE}
               color="var(--blue-600)" />
             <KPICard icon={<Landmark size={18} />} label="Inversion por empleo"
               value={`USD ${FMT_N(Math.round(resumenKpis.inversionPorEmpleoUsd))}`}
               sub="inversión industrial / empleo total modelado"
+              source={PARACEL_MODEL_SOURCE}
               color="var(--cyan-600)" />
             <KPICard icon={<FileText size={18} />} label="Brecha compras locales"
               value={`${FMT_N(resumenKpis.brechaComprasMM)} MM Gs.`}
               sub="hasta meta de 60% de compras locales"
+              source={PARACEL_MODEL_SOURCE}
               color="var(--red-600)" />
           </div>
 
@@ -708,6 +722,7 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                 <Line yAxisId="right" type="monotone" dataKey="ingresoEsperadoMM" name="Ingreso esperado MM Gs." stroke="#d97706" strokeWidth={2} connectNulls dot={false} />
               </LineChart>
             </ResponsiveContainer>
+            <p className="source-note"><strong>Fuente:</strong> Paracel y BID Invest para observados/referencias; simulacion propia para valores esperados.</p>
           </div>
 
           <div className="charts-grid-2 print-section">
@@ -726,6 +741,7 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                   <Line yAxisId="right" type="monotone" dataKey="ingresoMM" name="Ingreso local MM Gs." stroke="#d97706" strokeWidth={2.4} />
                 </ComposedChart>
               </ResponsiveContainer>
+              <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}.</p>
             </div>
 
             <div className="chart-card">
@@ -742,6 +758,7 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                   <Tooltip formatter={(v: number) => `${v}/100`} />
                 </RadarChart>
               </ResponsiveContainer>
+              <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}.</p>
             </div>
           </div>
 
@@ -764,6 +781,7 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                   <Line yAxisId="right" type="monotone" dataKey="ingresoMM" name="Ingreso local MM Gs." stroke="#d97706" strokeWidth={2.2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
+              <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}.</p>
             </div>
 
             <div className="chart-card">
@@ -780,6 +798,7 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                   <Line yAxisId="right" type="monotone" dataKey="empleo" name="Empleo asociado" stroke="#059669" strokeWidth={2.4} />
                 </ComposedChart>
               </ResponsiveContainer>
+              <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}.</p>
             </div>
           </div>
 
@@ -809,6 +828,7 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                 </tbody>
               </table>
             </div>
+            <p className="source-note"><strong>Fuente:</strong> {PARACEL_MODEL_SOURCE}; metas de gestion calculadas con supuestos editables.</p>
           </div>
 
           <div className="chart-card print-section">
@@ -851,6 +871,7 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
                 </tbody>
               </table>
             </div>
+            <p className="source-note"><strong>Fuente:</strong> {CENSUS_SOURCE}; {PARACEL_MODEL_SOURCE} para impactos distritales.</p>
           </div>
 
           <div className="chart-card print-section">

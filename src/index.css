@@ -387,6 +387,15 @@ body {
 .kpi-value { font-size: 24px; font-weight: 700; line-height: 1.1; }
 .kpi-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
 .kpi-sub { font-size: 11px; color: var(--text-muted); }
+.kpi-source {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-muted);
+  font-weight: 600;
+}
 
 /* Chart cards */
 .chart-card {
@@ -398,6 +407,15 @@ body {
 }
 .chart-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px; }
 .chart-note { font-size: 11px; color: var(--text-muted); margin: 8px 0 0; font-style: italic; }
+.source-note {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.source-note strong { color: var(--text-secondary); }
 .chart-wrapper { display: flex; flex-direction: column; gap: 4px; }
 .chart-tooltip {
   background: var(--bg-panel-strong);
@@ -2052,6 +2070,8 @@ button {
   color: var(--text-muted);
   line-height: 1.38;
 }
+
+.phase-source-note { grid-column: 1 / -1; }
 
 .impact-table-wrap { overflow-x: auto; }
 

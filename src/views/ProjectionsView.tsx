@@ -20,6 +20,9 @@ import {
 } from '../utils/analysis';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('es-PY');
+const CENSUS_SOURCE = 'INE, Censo 2022';
+const PROJECTION_SOURCE = 'INE 2022 + modelo cohorte-componente propio';
+const HISTORICAL_SOURCE = 'INE, series historicas disponibles';
 
 const SCENARIO_COLORS: Record<ScenarioKey, string> = {
   optimista: '#059669',
@@ -140,12 +143,14 @@ export default function ProjectionsView({ filters }: { filters: GlobalFilters })
           label="Poblacion 2022 (base)"
           value={fmt(baseRow.pobTotal)}
           sub="Censo 2022"
+          source={CENSUS_SOURCE}
           color="var(--text-secondary)"
         />
         <KPICard
           label={`Poblacion ${targetAnio} (${SCENARIO_LABELS[scenario]})`}
           value={fmt(targetRow?.pobTotal ?? 0)}
           sub={`${targetRow && targetRow.pobTotal >= baseRow.pobTotal ? '+' : ''}${targetRow ? (((targetRow.pobTotal - baseRow.pobTotal) / baseRow.pobTotal) * 100).toFixed(1) : '0.0'}% vs 2022`}
+          source={PROJECTION_SOURCE}
           color={SCENARIO_COLORS[scenario]}
           icon={<VarIcon size={20} />}
         />
@@ -153,24 +158,28 @@ export default function ProjectionsView({ filters }: { filters: GlobalFilters })
           label="Poblacion 2052"
           value={fmt(lastRow?.pobTotal ?? 0)}
           sub={`${varPob > 0 ? '+' : ''}${varPob.toFixed(1)}% vs 2022`}
+          source={PROJECTION_SOURCE}
           color="var(--blue-600)"
         />
         <KPICard
           label={`TGF ${targetAnio}`}
           value={targetRow?.tgf?.toFixed(2) ?? '—'}
           sub={`Actual 2022: ${baseRow.tgf}`}
+          source={PROJECTION_SOURCE}
           color="var(--amber-600)"
         />
         <KPICard
           label={`Esp. vida ${targetAnio} (H/M)`}
           value={`${targetRow?.ev0h ?? '—'} / ${targetRow?.ev0m ?? '—'}`}
           sub={`Actual 2022: ${baseRow.ev0h} / ${baseRow.ev0m}`}
+          source={PROJECTION_SOURCE}
           color="var(--cyan-600)"
         />
         <KPICard
           label={`Dependencia ${targetAnio}`}
           value={(targetRow?.razDependencia ?? 0).toFixed(1) + '%'}
           sub={`Actual 2022: ${baseRow.razDependencia}%`}
+          source={PROJECTION_SOURCE}
           color="var(--violet-600)"
         />
       </div>
@@ -194,6 +203,7 @@ export default function ProjectionsView({ filters }: { filters: GlobalFilters })
             <Line type="monotone" dataKey="proyectado" stroke={SCENARIO_COLORS[scenario]} strokeWidth={2.6} dot={false} connectNulls />
           </LineChart>
         </ResponsiveContainer>
+        <p className="source-note"><strong>Fuente:</strong> {HISTORICAL_SOURCE}; {PROJECTION_SOURCE}.</p>
       </div>
 
       <div className="chart-card">
@@ -219,6 +229,7 @@ export default function ProjectionsView({ filters }: { filters: GlobalFilters })
             ))}
           </LineChart>
         </ResponsiveContainer>
+        <p className="source-note"><strong>Fuente:</strong> {PROJECTION_SOURCE}.</p>
       </div>
 
       <div className="charts-grid-2">
@@ -236,6 +247,7 @@ export default function ProjectionsView({ filters }: { filters: GlobalFilters })
               <Area type="monotone" dataKey="defunciones" stroke="#dc2626" fill="#fee2e2" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {PROJECTION_SOURCE}.</p>
         </div>
 
         <div className="chart-card">
@@ -252,6 +264,7 @@ export default function ProjectionsView({ filters }: { filters: GlobalFilters })
               <Line type="monotone" dataKey="indiceEnvejecimiento" stroke="#7c3aed" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {PROJECTION_SOURCE}.</p>
         </div>
       </div>
 
@@ -269,6 +282,7 @@ export default function ProjectionsView({ filters }: { filters: GlobalFilters })
               <Line type="monotone" dataKey="tgf" stroke={SCENARIO_COLORS[scenario]} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {PROJECTION_SOURCE}.</p>
         </div>
 
         <div className="chart-card">
@@ -285,6 +299,7 @@ export default function ProjectionsView({ filters }: { filters: GlobalFilters })
               <Line type="monotone" dataKey="ev0m" stroke="#dc2626" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {PROJECTION_SOURCE}.</p>
         </div>
       </div>
 

@@ -101,6 +101,9 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
   const ind = poblacion === 'total'
     ? aggregateSocial(deptKeys)
     : SOCIAL_INDICATORS.indigenas_nacional;
+  const socialSource = ind.fuente;
+  const comparativeSource = 'INE/EPH 2022 y Censo 2022; comparativa propia';
+  const historicalSource = 'INE, series historicas disponibles';
 
   const indComparativo = {
     concepcion: SOCIAL_INDICATORS.concepcion_total,
@@ -154,6 +157,7 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
               <Tooltip formatter={(v: number) => pct(v)} />
             </RadarChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {socialSource}.</p>
         </div>
 
         {/* Comparativa departamentos + indígena */}
@@ -178,6 +182,7 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
               <Bar dataKey="indig" name="Indígena" fill="#d97706" />
             </BarChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {comparativeSource}.</p>
         </div>
       </div>
 
@@ -199,11 +204,11 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
       {tab === 'salud' && (
         <div>
           <div className="kpi-grid">
-            <KPICard label="Sin seguro médico" value={pct(ind.salud.sinSeguroMedico_pct)} color="var(--red-600)" icon={<HeartPulse size={18}/>} />
-            <KPICard label="Con IPS" value={pct(ind.salud.conIPS_pct)} color="var(--emerald-600)" />
-            <KPICard label="Otro seguro" value={pct(ind.salud.conOtroSeguro_pct)} color="var(--cyan-600)" />
-            <KPICard label="Consultó al médico (ult. 90 días)" value={pct(ind.salud.consultaMedica_pct)} color="var(--blue-600)" />
-            <KPICard label="Con presencia de USF" value={pct(ind.salud.usf_presencia_pct)} color="var(--violet-600)" />
+            <KPICard label="Sin seguro médico" value={pct(ind.salud.sinSeguroMedico_pct)} source={socialSource} color="var(--red-600)" icon={<HeartPulse size={18}/>} />
+            <KPICard label="Con IPS" value={pct(ind.salud.conIPS_pct)} source={socialSource} color="var(--emerald-600)" />
+            <KPICard label="Otro seguro" value={pct(ind.salud.conOtroSeguro_pct)} source={socialSource} color="var(--cyan-600)" />
+            <KPICard label="Consultó al médico (ult. 90 días)" value={pct(ind.salud.consultaMedica_pct)} source={socialSource} color="var(--blue-600)" />
+            <KPICard label="Con presencia de USF" value={pct(ind.salud.usf_presencia_pct)} source={socialSource} color="var(--violet-600)" />
           </div>
           <div className="chart-card">
             <h4 className="chart-title">Cobertura de seguro médico</h4>
@@ -225,6 +230,7 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
                 <Bar dataKey="indigena" name="Indígena (nacional)" fill="#d97706" />
               </BarChart>
             </ResponsiveContainer>
+            <p className="source-note"><strong>Fuente:</strong> {comparativeSource}.</p>
           </div>
         </div>
       )}
@@ -232,11 +238,11 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
       {tab === 'educacion' && (
         <div>
           <div className="kpi-grid">
-            <KPICard label="Tasa de analfabetismo" value={pct(ind.educacion.analfabetismo_pct)} color="var(--red-600)" icon={<GraduationCap size={18}/>} />
-            <KPICard label="Analfabetismo hombres" value={pct(ind.educacion.analfabetismo_hombres_pct)} color="var(--blue-600)" />
-            <KPICard label="Analfabetismo mujeres" value={pct(ind.educacion.analfabetismo_mujeres_pct)} color="var(--violet-600)" />
-            <KPICard label="Asistencia escolar (6–17)" value={pct(ind.educacion.asistencia_6_17_pct)} color="var(--emerald-600)" />
-            <KPICard label="Años de estudio promedio" value={ind.educacion.promedio_anios_estudio.toFixed(1)} color="var(--cyan-600)" />
+            <KPICard label="Tasa de analfabetismo" value={pct(ind.educacion.analfabetismo_pct)} source={socialSource} color="var(--red-600)" icon={<GraduationCap size={18}/>} />
+            <KPICard label="Analfabetismo hombres" value={pct(ind.educacion.analfabetismo_hombres_pct)} source={socialSource} color="var(--blue-600)" />
+            <KPICard label="Analfabetismo mujeres" value={pct(ind.educacion.analfabetismo_mujeres_pct)} source={socialSource} color="var(--violet-600)" />
+            <KPICard label="Asistencia escolar (6–17)" value={pct(ind.educacion.asistencia_6_17_pct)} source={socialSource} color="var(--emerald-600)" />
+            <KPICard label="Años de estudio promedio" value={ind.educacion.promedio_anios_estudio.toFixed(1)} source={socialSource} color="var(--cyan-600)" />
           </div>
           <div className="chart-card">
             <h4 className="chart-title">Analfabetismo por sexo — comparativa</h4>
@@ -258,6 +264,7 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
                 <Bar dataKey="indigena" name="Indígena (nacional)" fill="#d97706" />
               </BarChart>
             </ResponsiveContainer>
+            <p className="source-note"><strong>Fuente:</strong> {comparativeSource}.</p>
           </div>
         </div>
       )}
@@ -265,11 +272,11 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
       {tab === 'empleo' && (
         <div>
           <div className="kpi-grid">
-            <KPICard label="Tasa de actividad" value={pct(ind.empleo.tasa_actividad_pct)} color="var(--emerald-600)" icon={<Briefcase size={18}/>} />
-            <KPICard label="Actividad hombres" value={pct(ind.empleo.tasa_actividad_hombres_pct)} color="var(--blue-600)" />
-            <KPICard label="Actividad mujeres" value={pct(ind.empleo.tasa_actividad_mujeres_pct)} color="var(--violet-600)" />
-            <KPICard label="Tasa de ocupación" value={pct(ind.empleo.tasa_ocupacion_pct)} color="var(--cyan-600)" />
-            <KPICard label="Sector primario" value={pct(ind.empleo.sector_primario_pct)} color="var(--amber-600)" />
+            <KPICard label="Tasa de actividad" value={pct(ind.empleo.tasa_actividad_pct)} source={socialSource} color="var(--emerald-600)" icon={<Briefcase size={18}/>} />
+            <KPICard label="Actividad hombres" value={pct(ind.empleo.tasa_actividad_hombres_pct)} source={socialSource} color="var(--blue-600)" />
+            <KPICard label="Actividad mujeres" value={pct(ind.empleo.tasa_actividad_mujeres_pct)} source={socialSource} color="var(--violet-600)" />
+            <KPICard label="Tasa de ocupación" value={pct(ind.empleo.tasa_ocupacion_pct)} source={socialSource} color="var(--cyan-600)" />
+            <KPICard label="Sector primario" value={pct(ind.empleo.sector_primario_pct)} source={socialSource} color="var(--amber-600)" />
           </div>
           <div className="chart-card">
             <h4 className="chart-title">Tasa de actividad por sexo — comparativa</h4>
@@ -291,6 +298,7 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
                 <Bar dataKey="ind" name="Indígena (nacional)" fill="#d97706" />
               </BarChart>
             </ResponsiveContainer>
+            <p className="source-note"><strong>Fuente:</strong> {comparativeSource}.</p>
           </div>
         </div>
       )}
@@ -298,10 +306,10 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
       {tab === 'pobreza' && (
         <div>
           <div className="kpi-grid">
-            <KPICard label="Incidencia pobreza total" value={pct(ind.pobreza.incidencia_pobreza_pct)} color="var(--red-600)" icon={<Coins size={18}/>} />
-            <KPICard label="Pobreza extrema" value={pct(ind.pobreza.incidencia_pobreza_extrema_pct)} color="var(--amber-600)" />
-            <KPICard label="Brecha de pobreza" value={pct(ind.pobreza.brecha_pobreza)} color="var(--violet-600)" />
-            <KPICard label="Severidad de pobreza" value={pct(ind.pobreza.severidad_pobreza)} color="var(--cyan-600)" />
+            <KPICard label="Incidencia pobreza total" value={pct(ind.pobreza.incidencia_pobreza_pct)} source={socialSource} color="var(--red-600)" icon={<Coins size={18}/>} />
+            <KPICard label="Pobreza extrema" value={pct(ind.pobreza.incidencia_pobreza_extrema_pct)} source={socialSource} color="var(--amber-600)" />
+            <KPICard label="Brecha de pobreza" value={pct(ind.pobreza.brecha_pobreza)} source={socialSource} color="var(--violet-600)" />
+            <KPICard label="Severidad de pobreza" value={pct(ind.pobreza.severidad_pobreza)} source={socialSource} color="var(--cyan-600)" />
           </div>
           <div className="chart-card">
             <h4 className="chart-title">Evolución de la pobreza total (%)</h4>
@@ -317,6 +325,7 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
                 <Line type="monotone" dataKey="paraguay" name="Paraguay" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
+            <p className="source-note"><strong>Fuente:</strong> {historicalSource}.</p>
           </div>
         </div>
       )}
@@ -324,10 +333,10 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
       {tab === 'vivienda' && (
         <div>
           <div className="kpi-grid">
-            <KPICard label="Sin agua potable" value={pct(ind.vivienda.sin_agua_potable_pct)} color="var(--red-600)" icon={<Home size={18}/>} />
-            <KPICard label="Sin electricidad" value={pct(ind.vivienda.sin_electricidad_pct)} color="var(--amber-600)" />
-            <KPICard label="Sin saneamiento" value={pct(ind.vivienda.sin_saneamiento_pct)} color="var(--violet-600)" />
-            <KPICard label="Hacinamiento" value={pct(ind.vivienda.hacinamiento_pct)} color="var(--cyan-600)" />
+            <KPICard label="Sin agua potable" value={pct(ind.vivienda.sin_agua_potable_pct)} source={socialSource} color="var(--red-600)" icon={<Home size={18}/>} />
+            <KPICard label="Sin electricidad" value={pct(ind.vivienda.sin_electricidad_pct)} source={socialSource} color="var(--amber-600)" />
+            <KPICard label="Sin saneamiento" value={pct(ind.vivienda.sin_saneamiento_pct)} source={socialSource} color="var(--violet-600)" />
+            <KPICard label="Hacinamiento" value={pct(ind.vivienda.hacinamiento_pct)} source={socialSource} color="var(--cyan-600)" />
           </div>
           <div className="chart-card">
             <h4 className="chart-title">Déficit de servicios básicos — comparativa</h4>
@@ -350,6 +359,7 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
                 <Bar dataKey="ind" name="Indígena (nacional)" fill="#d97706" />
               </BarChart>
             </ResponsiveContainer>
+            <p className="source-note"><strong>Fuente:</strong> {comparativeSource}.</p>
           </div>
         </div>
       )}
@@ -357,9 +367,9 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
       {tab === 'genero' && (
         <div>
           <div className="kpi-grid">
-            <KPICard label="Jefatura femenina de hogar" value={pct(ind.genero.jefatura_femenina_pct)} color="var(--violet-600)" icon={<Users size={18}/>} />
-            <KPICard label="TGF (hijos por mujer)" value={ind.genero.tgf.toFixed(2)} color="var(--red-600)" />
-            <KPICard label="Mujeres sin hijos (12–49)" value={pct(ind.genero.mujeres_sin_hijos_12a49_pct)} color="var(--cyan-600)" />
+            <KPICard label="Jefatura femenina de hogar" value={pct(ind.genero.jefatura_femenina_pct)} source={socialSource} color="var(--violet-600)" icon={<Users size={18}/>} />
+            <KPICard label="TGF (hijos por mujer)" value={ind.genero.tgf.toFixed(2)} source={socialSource} color="var(--red-600)" />
+            <KPICard label="Mujeres sin hijos (12–49)" value={pct(ind.genero.mujeres_sin_hijos_12a49_pct)} source={socialSource} color="var(--cyan-600)" />
           </div>
           <div className="chart-card">
             <h4 className="chart-title">Evolución TGF — Concepción, Amambay y Paraguay</h4>
@@ -376,6 +386,7 @@ export default function SocialView({ filters }: { filters: GlobalFilters }) {
                 <Line type="monotone" dataKey="paraguay" name="Paraguay" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
+            <p className="source-note"><strong>Fuente:</strong> {historicalSource}.</p>
           </div>
         </div>
       )}

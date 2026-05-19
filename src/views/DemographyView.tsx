@@ -18,6 +18,8 @@ import {
 
 const fmt = (n: number) => n.toLocaleString('es-PY');
 const pct = (n: number) => n.toFixed(1) + '%';
+const CENSUS_SOURCE = 'INE, Censo 2022';
+const DERIVED_CENSUS_SOURCE = 'INE, Censo 2022; calculo propio';
 
 const COLORES_PIE = ['#059669','#2563eb','#d97706','#7c3aed','#dc2626','#0891b2','#4b5563','#ea580c'];
 
@@ -70,6 +72,7 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
           label="Población total"
           value={fmt(d.poblacion_total)}
           sub={`${fmt(d.varones)} H / ${fmt(d.mujeres)} M`}
+          source={CENSUS_SOURCE}
           color="var(--emerald-600)"
           icon={<Users size={20} />}
         />
@@ -77,6 +80,7 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
           label="Población urbana"
           value={pct((d.pob_urbana / d.poblacion_total) * 100)}
           sub={`${fmt(d.pob_urbana)} personas`}
+          source={CENSUS_SOURCE}
           color="var(--blue-600)"
           icon={<Home size={20} />}
         />
@@ -84,6 +88,7 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
           label="Población indígena"
           value={fmt(d.pob_indigena)}
           sub={`${pct(stats.pctIndigena)} de la población total`}
+          source={CENSUS_SOURCE}
           color="var(--amber-600)"
           icon={<TreePine size={20} />}
         />
@@ -91,6 +96,7 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
           label="Comunidades indígenas"
           value={d.comunidades_indigenas}
           sub={`en ${d.distritos.length} distritos`}
+          source={CENSUS_SOURCE}
           color="var(--violet-600)"
           icon={<MapPin size={20} />}
         />
@@ -98,12 +104,14 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
           label="Razón de dependencia"
           value={pct(stats.razDependencia)}
           sub="menores + adultos mayores / PEA"
+          source={DERIVED_CENSUS_SOURCE}
           color="var(--cyan-600)"
         />
         <KPICard
           label="Índice de envejecimiento"
           value={pct(stats.indiceEnvejecimiento)}
           sub="adultos mayores / jóvenes"
+          source={DERIVED_CENSUS_SOURCE}
           color="var(--red-600)"
         />
       </div>
@@ -120,6 +128,7 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
           <p className="chart-note">
             * Distribución estimada a partir de la estructura etaria nacional INE 2022 ajustada por perfil departamental.
           </p>
+          <p className="source-note"><strong>Fuente:</strong> {DERIVED_CENSUS_SOURCE}.</p>
         </div>
 
         {/* Pirámide comparativa Concepción vs Amambay */}
@@ -144,6 +153,7 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
               <Bar dataKey="amambay" name="Amambay" fill="#2563eb" radius={[0,2,2,0]} />
             </BarChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {DERIVED_CENSUS_SOURCE}.</p>
         </div>
       </div>
 
@@ -171,6 +181,7 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+        <p className="source-note"><strong>Fuente:</strong> {CENSUS_SOURCE}.</p>
       </div>
 
       {/* Pueblos indígenas */}
@@ -208,6 +219,7 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
               </div>
             ))}
           </div>
+          <p className="source-note"><strong>Fuente:</strong> {CENSUS_SOURCE}.</p>
         </div>
 
         {/* Distribución urbano-rural */}
@@ -234,6 +246,7 @@ export default function DemographyView({ filters }: { filters: GlobalFilters }) 
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          <p className="source-note"><strong>Fuente:</strong> {CENSUS_SOURCE}.</p>
 
           <div className="district-cards">
             {d.distritos.map((di, i) => (

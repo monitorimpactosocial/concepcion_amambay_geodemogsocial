@@ -43,10 +43,11 @@ const SCENARIO_LABELS: Record<ScenarioKey, string> = {
   pesimista: 'Pesimista',
 };
 
-function milestoneLines(withLabels = false) {
+function milestoneLines(withLabels = false, yAxisId?: string) {
   return PARACEL_MILESTONES.map((milestone) => (
     <ReferenceLine
       key={milestone.anio}
+      yAxisId={yAxisId}
       x={milestone.anio}
       stroke="#111827"
       strokeDasharray="4 4"
@@ -282,7 +283,7 @@ export default function ProjectionsView({ filters }: { filters: GlobalFilters })
               ]} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <ReferenceLine yAxisId="left" x={2022} stroke="#111827" strokeDasharray="4 4" />
-              {milestoneLines()}
+              {milestoneLines(false, 'left')}
               <Bar yAxisId="right" dataKey="ingresoParacelMensualGs" name="Ingreso PARACEL mensual" fill="#f59e0b" opacity={0.38} radius={[4, 4, 0, 0]} />
               <Line yAxisId="left" type="monotone" dataKey="salarioHistorico" name="Salario historico" stroke="#64748b" strokeWidth={2} dot connectNulls />
               <Line yAxisId="left" type="monotone" dataKey="salarioActual" name="Salario actual" stroke="#111827" strokeWidth={0} dot={{ r: 5, fill: '#111827' }} />

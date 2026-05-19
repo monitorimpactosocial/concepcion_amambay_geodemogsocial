@@ -1,5 +1,16 @@
 ﻿# Bitacora operativa
 
+## 2026-05-19 - Hotfix vista Proyecciones
+
+### Diagnostico atendido
+
+- La vista `Proyecciones` podia disparar la pantalla de recuperacion automatica al renderizar el grafico de salario medio e ingreso PARACEL.
+- La causa probable era una linea de referencia de Recharts dentro de un grafico con dos ejes Y sin `yAxisId` explicito.
+
+### Cambios aplicados
+
+- `src/views/ProjectionsView.tsx`: las lineas de hitos PARACEL en el grafico salarial ahora se vinculan al eje izquierdo para evitar errores de render.
+
 ## 2026-05-19 - Series laborales, reporte extendido y mapa territorial
 
 ### Diagnostico atendido

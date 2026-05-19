@@ -62,6 +62,7 @@ function ReportTable({
 }
 
 const contextByCode = new Map(CONTEXT_INDICATORS_2025_2026.map((item) => [item.code, item]));
+const contextPrioritySet = new Set(CONTEXT_PRIORITY_CODES);
 const contextRows = CONTEXT_PRIORITY_CODES
   .map((code) => contextByCode.get(code))
   .filter((item): item is NonNullable<typeof item> => Boolean(item))
@@ -73,6 +74,47 @@ const contextRows = CONTEXT_PRIORITY_CODES
     item.update,
     item.source,
   ]);
+const contextRequestedGroups = [
+  { label: 'Economia', prefix: 'ECO', requested: 20 },
+  { label: 'Salud', prefix: 'SAL', requested: 6 },
+  { label: 'Educacion', prefix: 'EDU', requested: 5 },
+  { label: 'Empleo', prefix: 'EMP', requested: 3 },
+];
+const contextCoverageRows = [
+  ...contextRequestedGroups.map((group) => {
+    const loaded = CONTEXT_INDICATORS_2025_2026.filter((item) => item.code.startsWith(group.prefix)).length;
+    const prioritized = CONTEXT_PRIORITY_CODES.filter((code) => code.startsWith(group.prefix)).length;
+    return [
+      group.label,
+      group.requested,
+      loaded,
+      `${Math.round((loaded / group.requested) * 100)}%`,
+      prioritized,
+    ];
+  }),
+  [
+    'Total',
+    contextRequestedGroups.reduce((sum, group) => sum + group.requested, 0),
+    CONTEXT_INDICATORS_2025_2026.length,
+    `${Math.round((CONTEXT_INDICATORS_2025_2026.length / 34) * 100)}%`,
+    CONTEXT_PRIORITY_CODES.length,
+  ],
+];
+const relevanceLabel = {
+  alta: 'Alta',
+  media: 'Media',
+  baja: 'Baja',
+} as const;
+const contextFullRows = CONTEXT_INDICATORS_2025_2026.map((item) => [
+  item.code,
+  item.category,
+  item.indicator,
+  item.scope,
+  item.source,
+  relevanceLabel[item.relevance],
+  contextPrioritySet.has(item.code) ? 'Priorizado en monitoreo' : 'Contexto documentado',
+  item.update,
+]);
 
 export default function ReporteView({ filters }: { filters: GlobalFilters }) {
   const deptKeys = deptKeysFromFilters(filters);
@@ -316,6 +358,22 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
         <ReportTable
           headers={['Código', 'Categoría', 'Indicador', 'Ámbito', 'Actualización 2025-2026', 'Fuente']}
           rows={contextRows}
+        />
+      </div>
+
+      <div className="chart-card print-section">
+        <h4 className="chart-title">Cobertura de indicadores PARACEL: 34 de 34 contemplados</h4>
+        <ReportTable
+          headers={['Categoria', 'Indicadores del documento', 'Cargados en app', 'Cobertura', 'Priorizados visibles']}
+          rows={contextCoverageRows}
+        />
+      </div>
+
+      <div className="chart-card print-section">
+        <h4 className="chart-title">Matriz completa de 34 indicadores PARACEL</h4>
+        <ReportTable
+          headers={['Codigo', 'Categoria', 'Indicador', 'Ambito', 'Fuente', 'Relevancia', 'Uso en app', 'Actualizacion 2025-2026']}
+          rows={contextFullRows}
         />
       </div>
 

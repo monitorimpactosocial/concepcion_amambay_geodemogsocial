@@ -1,5 +1,18 @@
 ﻿# Bitacora operativa
 
+## 2026-05-18 - Matriz completa de 34 indicadores PARACEL
+
+### Diagnostico atendido
+
+- El documento `Reporte_Indicadores-PARACEL_editado.pdf` contempla 34 indicadores: 20 de economia, 6 de salud, 5 de educacion y 3 de empleo.
+- La app ya tenia cargados los 34 indicadores en `src/data/contexto2025.ts`, pero el reporte visible solo exponia los 13 priorizados.
+
+### Cambios aplicados
+
+- `src/views/ReporteView.tsx`: agrega tabla de cobertura por categoria con 34/34 indicadores contemplados.
+- `src/views/ReporteView.tsx`: agrega matriz completa de indicadores PARACEL con codigo, categoria, indicador, ambito, fuente, relevancia, uso en app y actualizacion 2025-2026.
+- Se mantiene la tabla de 13 indicadores priorizados como lectura ejecutiva.
+
 ## 2026-05-18 - Correccion de tooltip en serie PARACEL
 
 ### Diagnostico atendido

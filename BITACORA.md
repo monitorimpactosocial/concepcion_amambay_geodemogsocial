@@ -11,6 +11,19 @@
 
 - `src/views/ProjectionsView.tsx`: las lineas de hitos PARACEL en el grafico salarial ahora se vinculan al eje izquierdo para evitar errores de render.
 
+## 2026-05-19 - Excel maestro de indicadores y series
+
+### Diagnostico atendido
+
+- Se necesitaba un archivo Excel unico que compile e indexe las series e indicadores usados por la app web.
+- La compilacion debia ser reproducible desde los modulos de datos existentes, no una copia manual.
+
+### Cambios aplicados
+
+- `scripts/collect_indicator_series.cjs`: recolecta Censo 2022, indicadores sociales, series historicas, proyecciones, mercado laboral, impacto PARACEL, matriz 2025-2026 y BCP desde los archivos TypeScript de la app.
+- `scripts/export_indicator_workbook.py`: genera `exports/monitor_indicadores_series.xlsx` con metadatos, indice, fuentes, catalogo maestro y hojas tematicas.
+- `package.json`: agrega `npm run export:indicators` para regenerar el Excel.
+
 ## 2026-05-19 - Series laborales, reporte extendido y mapa territorial
 
 ### Diagnostico atendido

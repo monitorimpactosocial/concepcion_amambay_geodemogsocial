@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --host",
+    "export:indicators": "python scripts/export_indicator_workbook.py",
     "typecheck": "tsc --project tsconfig.app.json",
     "check": "npm run typecheck && npm run build"
   },

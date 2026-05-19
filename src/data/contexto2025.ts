@@ -19,6 +19,100 @@ export interface ContextSignal {
   interpretation: string;
 }
 
+export interface BcpMacroIndicator {
+  code: string;
+  indicator: string;
+  value: string;
+  update: string;
+  relevance: 'alta' | 'media' | 'baja';
+  source: string;
+  url: string;
+}
+
+export const BCP_ANEXO_ESTADISTICO_2026 = {
+  title: 'Anexo Estadistico del Informe Economico',
+  fileName: 'Anexo_Estadistico_del_Informe_Economico_18_05_26.xlsx',
+  publishedDate: '18/05/2026',
+  sourcePage: 'https://www.bcp.gov.py/anexo-estadistico-',
+  downloadUrl: 'https://www.bcp.gov.py/documents/20117/213069/Anexo_Estad%C3%ADstico_del_Informe_Econ%C3%B3mico_18_05_26.xlsx/473294e8-3eac-23a5-b2b6-89cf8d8795bf?t=1779124145665',
+  note: 'El BCP describe este anexo como el archivo Excel de estadisticas economicas, sectoriales, monetarias, financieras, balanza de pagos y comercio exterior.',
+};
+
+export const BCP_MACRO_INDICATORS_2026: BcpMacroIndicator[] = [
+  {
+    code: 'BCP01',
+    indicator: 'Crecimiento y proyeccion del PIB',
+    value: 'PIB 2025: +6,6%; proyeccion 2026: +4,2%',
+    update: 'El ciclo macro mantiene expansion y sirve como base para calibrar empleo, demanda de servicios y presion sobre proveedores.',
+    relevance: 'alta',
+    source: 'BCP - IPoM marzo 2026 / tablero de principales variables',
+    url: 'https://www.bcp.gov.py/web/institucional/w/informe-de-pol%C3%ADtica-monetaria-marzo-2026',
+  },
+  {
+    code: 'BCP02',
+    indicator: 'Inflacion y meta de politica monetaria',
+    value: 'Inflacion interanual abril 2026: 2,3%; proyeccion 2026: 3,5%',
+    update: 'La inflacion contenida reduce ruido nominal, pero debe vigilarse por presion de alquileres, alimentos, transporte y servicios locales.',
+    relevance: 'alta',
+    source: 'BCP - principales variables / IPoM marzo 2026',
+    url: 'https://www.bcp.gov.py/',
+  },
+  {
+    code: 'BCP03',
+    indicator: 'Condiciones financieras',
+    value: 'TPM: 5,50%; tasa interbancaria al 13/05/2026: 5,35%',
+    update: 'Senal para costo de capital, financiamiento de pymes proveedoras, construccion y capital de trabajo regional.',
+    relevance: 'media',
+    source: 'BCP - principales variables',
+    url: 'https://www.bcp.gov.py/',
+  },
+  {
+    code: 'BCP04',
+    indicator: 'Actividad economica mensual - IMAEP',
+    value: 'Marzo 2026: +8,2% interanual; acumulado: +4,7%',
+    update: 'El IMAEP confirma dinamismo de corto plazo; sectores primario, secundario, manufacturas y servicios crecieron en marzo.',
+    relevance: 'alta',
+    source: 'BCP - IMAEP marzo 2026',
+    url: 'https://www.bcp.gov.py/web/institucional/indicador-mensual-de-actividad-economica-del-paraguay-imaep',
+  },
+  {
+    code: 'BCP05',
+    indicator: 'Ventas reales - ECN',
+    value: 'Marzo 2026: +9,2% interanual; acumulado: +4,9%',
+    update: 'Indicador lider de demanda comercial y servicios; util para anticipar captura local de compras y tension en comercio regional.',
+    relevance: 'alta',
+    source: 'BCP - ECN marzo 2026',
+    url: 'https://www.bcp.gov.py/web/institucional/estimador-cifras-de-negocios',
+  },
+  {
+    code: 'BCP06',
+    indicator: 'Comercio exterior total',
+    value: 'Exportaciones totales ene-abr 2026: USD 6.205,9 millones; +14,6%',
+    update: 'Contexto externo favorable para cadenas primarias, agroindustriales e industriales vinculables a logistica y servicios.',
+    relevance: 'media',
+    source: 'BCP - COMEX abril 2026',
+    url: 'https://www.bcp.gov.py/web/institucional/comercio-exterior-comex-',
+  },
+  {
+    code: 'BCP07',
+    indicator: 'Exportaciones registradas por procesamiento',
+    value: 'Primarios +36,3%; MOA +4,9%; MOI +32,1%; energia -19,2%',
+    update: 'Ayuda a leer oportunidades de proveedores, transporte, agroindustria y demanda energetica alrededor de nuevas inversiones.',
+    relevance: 'alta',
+    source: 'BCP - COMEX abril 2026',
+    url: 'https://www.bcp.gov.py/web/institucional/comercio-exterior-comex-',
+  },
+  {
+    code: 'BCP08',
+    indicator: 'Reservas internacionales netas',
+    value: 'RIN al 13/05/2026: USD 11.388,5 millones',
+    update: 'Senal de respaldo externo y estabilidad macro relevante para inversiones de gran escala y riesgo cambiario.',
+    relevance: 'media',
+    source: 'BCP - principales variables',
+    url: 'https://www.bcp.gov.py/',
+  },
+];
+
 export const CONTEXT_INDICATORS_2025_2026: ContextIndicator[] = [
   {
     code: 'ECO01',
@@ -334,8 +428,8 @@ export const CONTEXT_SIGNAL_INDEX: ContextSignal[] = [
     score: 82,
     opportunity: 88,
     pressure: 58,
-    leadKpi: 'PIB +6,6% 2025; proyección +4,2% 2026',
-    interpretation: 'El ciclo macro es favorable para absorción de inversión, pero aumenta demanda de insumos y servicios.',
+    leadKpi: 'PIB +6,6% 2025; IMAEP +8,2% y ECN +9,2% en marzo 2026',
+    interpretation: 'El ciclo macro y la demanda de corto plazo son favorables para absorber inversion, pero elevan presion sobre insumos, servicios y proveedores.',
   },
   {
     dimension: 'Formalización',

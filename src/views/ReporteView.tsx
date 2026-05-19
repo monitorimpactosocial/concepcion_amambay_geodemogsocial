@@ -21,6 +21,8 @@ import {
   scopeLabel,
 } from '../utils/analysis';
 import {
+  BCP_ANEXO_ESTADISTICO_2026,
+  BCP_MACRO_INDICATORS_2026,
   CONTEXT_INDICATORS_2025_2026,
   CONTEXT_PRIORITY_CODES,
   CONTEXT_SIGNAL_INDEX,
@@ -119,6 +121,14 @@ const contextFullRows = CONTEXT_INDICATORS_2025_2026.map((item) => [
   relevanceLabel[item.relevance],
   contextPrioritySet.has(item.code) ? 'Priorizado en monitoreo' : 'Contexto documentado',
   item.update,
+]);
+const bcpMacroRows = BCP_MACRO_INDICATORS_2026.map((item) => [
+  item.code,
+  item.indicator,
+  item.value,
+  relevanceLabel[item.relevance],
+  item.update,
+  item.source,
 ]);
 
 export default function ReporteView({ filters }: { filters: GlobalFilters }) {
@@ -235,6 +245,9 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
         <h4 className="chart-title">Pulso económico y social 2025-2026 incorporado al análisis</h4>
         <div className="kpi-grid-4">
           <KPICard label="PIB Paraguay 2025" value="+6,6%" sub="proyección 2026: +4,2%" source="BCP" color="var(--emerald-600)" icon={<TrendingUp size={18} />} />
+          <KPICard label="IMAEP marzo 2026" value="+8,2%" sub="acumulado: +4,7%" source="BCP" color="var(--emerald-700)" icon={<TrendingUp size={18} />} />
+          <KPICard label="ECN marzo 2026" value="+9,2%" sub="ventas reales; acumulado +4,9%" source="BCP" color="var(--blue-600)" icon={<FileText size={18} />} />
+          <KPICard label="Exportaciones ene-abr" value="+14,6%" sub="USD 6.205,9 millones" source="BCP COMEX" color="var(--cyan-700)" icon={<TrendingUp size={18} />} />
           <KPICard label="Contribuyentes Concepción" value="26.108" sub="base formal para proveedores" source="DNIT" color="var(--blue-600)" icon={<FileText size={18} />} />
           <KPICard label="Construcción Concepción" value="197" sub="permisos 2024; 948 ventas de inmuebles" source="Municipalidad de Concepcion / DGRP" color="var(--amber-600)" icon={<Home size={18} />} />
           <KPICard label="Plantaciones forestales" value="+66,1%" sub="crecimiento de superficie en el bienio" source="INFONA" color="var(--emerald-700)" icon={<Briefcase size={18} />} />
@@ -243,6 +256,17 @@ export default function ReporteView({ filters }: { filters: GlobalFilters }) {
           <KPICard label="Edad activa Concepción" value="63,8%" sub="población proyectada 2025" source="INE" color="var(--violet-600)" icon={<Users size={18} />} />
           <KPICard label="Desocupación nacional" value="3,6%" sub="subocupación 3,5%, 4T 2025" source="INE" color="var(--emerald-600)" icon={<Briefcase size={18} />} />
         </div>
+      </div>
+
+      <div className="chart-card print-section">
+        <h4 className="chart-title">Indicadores macro BCP agregados al monitoreo</h4>
+        <ReportTable
+          headers={['Código', 'Indicador', 'Valor reciente', 'Relevancia', 'Uso en la app', 'Fuente']}
+          rows={bcpMacroRows}
+        />
+        <p className="source-note">
+          <strong>Fuente:</strong> BCP, Anexo Estadistico del Informe Economico ({BCP_ANEXO_ESTADISTICO_2026.publishedDate}) y paginas oficiales de IMAEP, ECN, IPoM, COMEX y principales variables. Archivo de referencia: {BCP_ANEXO_ESTADISTICO_2026.fileName}.
+        </p>
       </div>
 
       <div className="charts-grid-2 print-section">

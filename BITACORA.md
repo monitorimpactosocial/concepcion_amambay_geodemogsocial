@@ -1,5 +1,20 @@
 ﻿# Bitacora operativa
 
+## 2026-05-19 - Indicadores macro BCP y anexo estadistico
+
+### Diagnostico atendido
+
+- Se ubico en el sitio oficial del BCP el `Anexo_Estadistico_del_Informe_Economico_18_05_26.xlsx`, publicado como referencia del Anexo Estadistico del Informe Economico.
+- La descarga automatizada del binario `.xlsx` desde terminal fue bloqueada por el desafio JavaScript/cookies de Cloudflare del dominio `www.bcp.gov.py`.
+- Se complementa la app con indicadores BCP oficiales disponibles en paginas y reportes publicos: IPoM, IMAEP, ECN, COMEX y principales variables.
+
+### Cambios aplicados
+
+- `src/data/contexto2025.ts`: agrega metadatos del anexo BCP e indicadores macro 2026 seleccionados para el monitoreo territorial.
+- `src/views/ReporteView.tsx`: agrega tarjetas y tabla de indicadores macro BCP.
+- `src/views/ImpactoView.tsx`: agrega tabla de contexto macro BCP para calibrar impactos.
+- `docs/bcp_anexo_estadistico_18_05_26.md`: documenta fuente, bloqueo de descarga automatizada y criterio de seleccion.
+
 ## 2026-05-18 - Mayor visibilidad de fuentes por indicador
 
 ### Diagnostico atendido

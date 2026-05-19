@@ -24,7 +24,7 @@ import {
 import KPICard from '../components/charts/KPICard';
 import { CENSUS } from '../data/census2022';
 import { SOCIAL_INDICATORS } from '../data/socialIndicators';
-import { CONTEXT_SIGNAL_INDEX } from '../data/contexto2025';
+import { BCP_MACRO_INDICATORS_2026, CONTEXT_SIGNAL_INDEX } from '../data/contexto2025';
 import type { GlobalFilters } from '../types';
 import {
   PARACEL_MILESTONES,
@@ -627,6 +627,33 @@ export default function ImpactoView({ filters }: { filters: GlobalFilters }) {
               </ComposedChart>
             </ResponsiveContainer>
             <p className="source-note"><strong>Fuente:</strong> {CONTEXT_SOURCE}; calculo propio.</p>
+          </div>
+
+          <div className="chart-card print-section">
+            <h4 className="chart-title">Contexto macro BCP relevante para calibrar impactos</h4>
+            <div className="impact-table-wrap">
+              <table className="impact-table">
+                <thead>
+                  <tr>
+                    <th>Indicador</th>
+                    <th>Valor reciente</th>
+                    <th>Lectura para PARACEL</th>
+                    <th>Fuente</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {BCP_MACRO_INDICATORS_2026.filter((item) => item.relevance !== 'baja').map((item) => (
+                    <tr key={item.code}>
+                      <td className="td-nombre">{item.indicator}</td>
+                      <td>{item.value}</td>
+                      <td>{item.update}</td>
+                      <td>{item.source}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="source-note"><strong>Fuente:</strong> BCP, Anexo Estadistico del Informe Economico 18/05/2026 y reportes oficiales IMAEP, ECN, IPoM, COMEX y principales variables.</p>
           </div>
 
           <div className="phase-grid print-section">
